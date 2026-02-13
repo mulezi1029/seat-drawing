@@ -116,21 +116,22 @@ function App() {
   }, [completeSectionDrawing]);
 
   const handleZoomIn = useCallback(() => {
-    // 每次方法 10%
-    setZoom(editorState.zoom * 1.1);
+    // 每次放大 10%，以底图中心为基准
+    setZoom(editorState.zoom * 1.1, undefined);
   }, [editorState.zoom, setZoom]);
 
   const handleZoomOut = useCallback(() => {
-    setZoom(editorState.zoom / 1.1);
+    // 每次缩小 10%，以底图中心为基准
+    setZoom(editorState.zoom / 1.1, undefined);
   }, [editorState.zoom, setZoom]);
 
   const handleZoomChange = useCallback((zoom: number) => {
-    setZoom(zoom);
+    setZoom(zoom, undefined);
   }, [setZoom]);
 
-  const handleZoom = useCallback((delta: number, _center: Point) => {
-    const newZoom = Math.max(0.1, Math.min(5, editorState.zoom * delta));
-    setZoom(newZoom);
+  const handleZoom = useCallback((delta: number, center: Point) => {
+    const newZoom = Math.max(1, Math.min(10, editorState.zoom * delta));
+    setZoom(newZoom, center);
   }, [editorState.zoom, setZoom]);
 
   const handlePan = useCallback((delta: Point) => {

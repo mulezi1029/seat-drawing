@@ -666,13 +666,22 @@ export function useVenueDesigner() {
     }));
   }, []);
 
-  // Zoom and Pan
-  const setZoom = useCallback((zoom: number) => {
-    setEditorState(prev => ({
-      ...prev,
-      zoom: Math.max(0.1, Math.min(5, zoom)),
-    }));
-  }, []);
+  // Zoom and Pan: zoom toward a center point (mouse or floor center); adjust pan so center stays fixed on screen
+  const setZoom = useCallback((newZoom: number, center?: Point) => {
+    setEditorState(prev => {
+      const z1 = Math.max(1, Math.min(10, newZoom));
+      const z0 = prev.zoom;
+      const cx = center?.x ?? (venueMap.width > 0 ? venueMap.width / 2 : 0);
+      const cy = center?.y ?? (venueMap.height > 0 ? venueMap.height / 2 : 0);
+      const panNewX = cx - ((cx - prev.pan.x) * z0) / z1;
+      const panNewY = cy - ((cy - prev.pan.y) * z0) / z1;
+      return {
+        ...prev,
+        zoom: z1,
+        pan: { x: panNewX, y: panNewY },
+      };
+    });
+  }, [venueMap.width, venueMap.height]);
 
   const setPan = useCallback((pan: Point) => {
     setEditorState(prev => ({

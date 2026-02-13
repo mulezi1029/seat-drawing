@@ -459,15 +459,15 @@ export const Toolbar: React.FC<ToolbarProps> = ({
             {showZoomSlider && (
               <div className="absolute top-full mt-2 left-1/2 -translate-x-1/2 bg-white border rounded-lg shadow-lg p-3 z-50 w-48">
                 <div className="flex items-center gap-2">
-                  <span className="text-xs text-slate-400">10%</span>
+                  <span className="text-xs text-slate-400">100%</span>
                   <Slider
                     value={[zoom]}
                     onValueChange={([v]) => onZoomChange(v)}
-                    min={0.1}
+                    min={1}
                     max={10}
                     step={0.05}
                   />
-                  <span className="text-xs text-slate-400">500%</span>
+                  <span className="text-xs text-slate-400">1000%</span>
                 </div>
                 <div className="text-center text-xs text-slate-500 mt-2">
                   {zoomPercent}%

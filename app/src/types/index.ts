@@ -14,6 +14,16 @@ export interface Seat {
   status: 'available' | 'occupied' | 'reserved' | 'disabled';
   color?: string;
   sectionId: string;
+  groupId?: string;
+}
+
+export interface SeatGroup {
+  id: string;
+  sectionId: string;
+  tool: 'row' | 'line';
+  spacing: number;
+  seatIds: string[];
+  createdAt: number;
 }
 
 export interface Section {
@@ -31,6 +41,7 @@ export interface VenueMap {
   svgUrl: string | null;
   svgContent: string | null;
   sections: Section[];
+  seatGroups: SeatGroup[];
   width: number;
   height: number;
 }
