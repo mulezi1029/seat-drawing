@@ -1,48 +1,80 @@
+/**
+ * SVG 绘制画布组件
+ *
+ * 这是应用的核心交互组件，负责：
+ * 1. 绘制场馆底图、区域和座位
+ * 2. 处理所有鼠标和键盘交互
+ * 3. 实现各种绘制和编辑工具的逻辑
+ * 4. 管理用户交互的反馈（预览、提示等）
+ *
+ * 功能模块：
+ * - 坐标转换：屏幕坐标 ↔ SVG 坐标
+ * - 几何检测：点在多边形/矩形内、点到线的距离等
+ * - 鼠标处理：点击、拖拽、悬停等
+ * - 键盘处理：快捷键、箭头键等
+ * - 渲染：网格、背景、区域、座位、预览等
+ * - 缩放/平移：处理鼠标滚轮和平移操作
+ *
+ * 交互流程：
+ * 1. 用户在画布上进行鼠标操作 → 触发事件处理
+ * 2. 事件处理确定操作类型（绘制、选择、移动等）
+ * 3. 计算相关的几何数据
+ * 4. 触发父组件的回调函数
+ * 5. 更新状态用于实时预览
+ */
+
 import React, { useRef, useEffect, useState, useCallback } from 'react';
 import type { Point, Section, EditorMode, SeatTool, CanvasTool, ViewConfig, SeatGroup } from '@/types';
 import { Save, X } from 'lucide-react';
 
+/**
+ * SVGCanvas 组件的 Props 接口
+ * 定义了所有需要传入的属性和回调函数
+ */
 interface SVGCanvasProps {
-  // Venue data
-  svgUrl: string | null;
-  sections: Section[];
-  seatGroups?: SeatGroup[];
-  width: number;
-  height: number;
+  // ========== 场馆数据 ==========
+  svgUrl: string | null;                // SVG 底图 URL
+  sections: Section[];                  // 所有区域数据
+  seatGroups?: SeatGroup[];             // 所有座位组数据（可选）
+  width: number;                        // 画布宽度
+  height: number;                       // 画布高度
 
-  // Editor state
-  mode: EditorMode;
-  selectedSectionId: string | null;
-  selectedSeatIds: string[];
-  seatTool: SeatTool;
-  canvasTool: CanvasTool;
-  zoom: number;
-  pan: Point;
-  drawingPoints: Point[];
-  viewConfig: ViewConfig;
+  // ========== 编辑器状态 ==========
+  mode: EditorMode;                     // 当前编辑模式
+  selectedSectionId: string | null;     // 当前选中的区域 ID
+  selectedSeatIds: string[];            // 当前选中的座位 ID 数组
+  seatTool: SeatTool;                   // 当前座位工具
+  canvasTool: CanvasTool;               // 当前画布工具
+  zoom: number;                         // 缩放比例
+  pan: Point;                           // 平移偏移
+  drawingPoints: Point[];               // 绘制中的多边形顶点
+  viewConfig: ViewConfig;               // 视图配置
 
-  // Config
-  seatRadius: number;
-  seatSpacing: number;
+  // ========== 绘制配置 ==========
+  seatRadius: number;                   // 座位圆形半径
+  seatSpacing: number;                  // 座位间距
 
-  // Actions
-  onAddSectionPoint: (point: Point) => void;
-  onCompleteSection: () => void;
-  onCancelDrawing: () => void;
-  onEnterSection: (sectionId: string) => void;
-  onAddSeat: (sectionId: string, point: Point) => void;
-  onAddSeatsInRow: (sectionId: string, start: Point, end: Point, spacing?: number) => void;
-  onAddSeatsAlongLine: (sectionId: string, points: Point[], spacing?: number) => void;
-  onSelectSeat: (seatId: string, multi: boolean) => void;
-  onSelectSeatsInArea: (sectionId: string, start: Point, end: Point) => void;
-  onMoveSeats: (sectionId: string, seatIds: string[], delta: Point) => void;
-  onNudgeSeats: (sectionId: string, seatIds: string[], direction: 'up' | 'down' | 'left' | 'right') => void;
-  onDeleteSeat: (sectionId: string, seatId: string) => void;
-  onPan: (delta: Point) => void;
-  onZoom: (delta: number, center: Point) => void;
-  onUpdateSeatGroupSpacing?: (sectionId: string, groupId: string, newSpacing: number) => void;
+  // ========== 回调函数 ==========
+  onAddSectionPoint: (point: Point) => void;  // 添加区域顶点
+  onCompleteSection: () => void;              // 完成区域绘制
+  onCancelDrawing: () => void;                // 取消绘制
+  onEnterSection: (sectionId: string) => void;  // 进入区域编辑
+  onAddSeat: (sectionId: string, point: Point) => void;  // 添加座位
+  onAddSeatsInRow: (sectionId: string, start: Point, end: Point, spacing?: number) => void;  // 添加一行座位
+  onAddSeatsAlongLine: (sectionId: string, points: Point[], spacing?: number) => void;  // 沿线添加座位
+  onSelectSeat: (seatId: string, multi: boolean) => void;  // 选择座位
+  onSelectSeatsInArea: (sectionId: string, start: Point, end: Point) => void;  // 框选座位
+  onMoveSeats: (sectionId: string, seatIds: string[], delta: Point) => void;  // 移动座位
+  onNudgeSeats: (sectionId: string, seatIds: string[], direction: 'up' | 'down' | 'left' | 'right') => void;  // 轻微调整座位
+  onDeleteSeat: (sectionId: string, seatId: string) => void;  // 删除座位
+  onPan: (delta: Point) => void;                // 平移
+  onZoom: (delta: number, center: Point) => void;  // 缩放
+  onUpdateSeatGroupSpacing?: (sectionId: string, groupId: string, newSpacing: number) => void;  // 更新座位组间距
 }
 
+/**
+ * SVG 绘制画布组件
+ */
 export const SVGCanvas: React.FC<SVGCanvasProps> = ({
   svgUrl,
   sections,
@@ -76,31 +108,51 @@ export const SVGCanvas: React.FC<SVGCanvasProps> = ({
   onZoom,
   onUpdateSeatGroupSpacing,
 }) => {
-  const svgRef = useRef<SVGSVGElement>(null);
-  const containerRef = useRef<HTMLDivElement>(null);
-  const [isPanning, setIsPanning] = useState(false);
-  const [isDraggingSeats, setIsDraggingSeats] = useState(false);
-  const [panStart, setPanStart] = useState<Point | null>(null);
-  const [dragStart, setDragStart] = useState<Point | null>(null);
-  const [dragCurrent, setDragCurrent] = useState<Point | null>(null);
-  const [tempPoints, setTempPoints] = useState<Point[]>([]);
-  const [rowStartPoint, setRowStartPoint] = useState<Point | null>(null);
-  const [mousePos, setMousePos] = useState<Point>({ x: 0, y: 0 });
-  const [seatDragStart, setSeatDragStart] = useState<Point | null>(null);
-  const [seatDragOrigin, setSeatDragOrigin] = useState<Point | null>(null);
-  const [isSpacePressed, setIsSpacePressed] = useState(false);
-  const spacePressedRef = useRef(false);
-  const [isAltPressed, setIsAltPressed] = useState(false);
-  const [hoveredSeatId, setHoveredSeatId] = useState<string | null>(null);
-  const [hoveredSectionId, setHoveredSectionId] = useState<string | null>(null);
-  const [currentGroupSpacing, setCurrentGroupSpacing] = useState<number | null>(null);
-  const [showSpacingInput, setShowSpacingInput] = useState(false);
-  const [pendingRowData, setPendingRowData] = useState<{ start: Point; end: Point } | null>(null);
-  const [pendingLineData, setPendingLineData] = useState<Point[] | null>(null);
-  const [selectedGroupInfo, setSelectedGroupInfo] = useState<{ group: SeatGroup; seatCount: number } | null>(null);
-  const [editingGroupSpacing, setEditingGroupSpacing] = useState<number | null>(null);
+  /**
+   * ========== Refs ==========
+   * 用于存储 DOM 元素引用
+   */
+  const svgRef = useRef<SVGSVGElement>(null);           // SVG 元素引用
+  const containerRef = useRef<HTMLDivElement>(null);    // 容器元素引用
 
-  // Transform screen coordinates to SVG coordinates
+  /**
+   * ========== 交互状态 ==========
+   * 这些状态管理用户当前的交互操作
+   */
+  const [isPanning, setIsPanning] = useState(false);              // 是否在平移
+  const [isDraggingSeats, setIsDraggingSeats] = useState(false);  // 是否在拖拽座位
+  const [panStart, setPanStart] = useState<Point | null>(null);   // 平移的起始位置
+  const [dragStart, setDragStart] = useState<Point | null>(null);  // 拖拽框选的起始位置
+  const [dragCurrent, setDragCurrent] = useState<Point | null>(null);  // 拖拽框选的当前位置
+  const [tempPoints, setTempPoints] = useState<Point[]>([]);      // 线工具的临时点集
+  const [rowStartPoint, setRowStartPoint] = useState<Point | null>(null);  // 行工具的起始点
+  const [mousePos, setMousePos] = useState<Point>({ x: 0, y: 0 });  // 当前鼠标位置
+  const [seatDragStart, setSeatDragStart] = useState<Point | null>(null);  // 座位拖拽的起始位置
+  const [seatDragOrigin, setSeatDragOrigin] = useState<Point | null>(null);  // 座位拖拽的原始位置
+  const [isSpacePressed, setIsSpacePressed] = useState(false);  // Space 键是否被按下
+  const spacePressedRef = useRef(false);  // Ref 用于在事件处理中获取最新的 Space 键状态
+  const [isAltPressed, setIsAltPressed] = useState(false);  // Alt 键是否被按下
+  const [hoveredSeatId, setHoveredSeatId] = useState<string | null>(null);  // 鼠标悬停的座位 ID
+  const [hoveredSectionId, setHoveredSectionId] = useState<string | null>(null);  // 鼠标悬停的区域 ID
+  const [currentGroupSpacing, setCurrentGroupSpacing] = useState<number | null>(null);  // 当前座位组的间距
+  const [showSpacingInput, setShowSpacingInput] = useState(false);  // 是否显示间距输入对话框
+  const [pendingRowData, setPendingRowData] = useState<{ start: Point; end: Point } | null>(null);  // 待处理的行数据
+  const [pendingLineData, setPendingLineData] = useState<Point[] | null>(null);  // 待处理的线数据
+  const [selectedGroupInfo, setSelectedGroupInfo] = useState<{ group: SeatGroup; seatCount: number } | null>(null);  // 选中的座位组信息
+  const [editingGroupSpacing, setEditingGroupSpacing] = useState<number | null>(null);  // 正在编辑的座位组间距
+
+  /**
+   * ========== 坐标转换函数 ==========
+   */
+
+  /**
+   * 将屏幕坐标转换为 SVG 坐标
+   * 使用 SVG 的 getScreenCTM 方法进行矩阵变换
+   *
+   * @param {number} screenX - 屏幕 X 坐标
+   * @param {number} screenY - 屏幕 Y 坐标
+   * @returns {Point} 转换后的 SVG 坐标
+   */
   const screenToSVG = useCallback((screenX: number, screenY: number): Point => {
     if (!svgRef.current) return { x: 0, y: 0 };
     const pt = svgRef.current.createSVGPoint();
@@ -110,23 +162,44 @@ export const SVGCanvas: React.FC<SVGCanvasProps> = ({
     return { x: svgP.x, y: svgP.y };
   }, []);
 
-  // Get mouse position in SVG coordinates
+  /**
+   * 获取鼠标在 SVG 坐标系中的位置
+   *
+   * @param {React.MouseEvent} e - 鼠标事件
+   * @returns {Point} 鼠标的 SVG 坐标
+   */
   const getMousePos = useCallback((e: React.MouseEvent): Point => {
     const rect = svgRef.current?.getBoundingClientRect();
     if (!rect) return { x: 0, y: 0 };
     return screenToSVG(e.clientX, e.clientY);
   }, [screenToSVG]);
 
-  // Check if should pan
+  /**
+   * 检查是否应该触发平移操作
+   * 支持多种平移方式：
+   * 1. 中键点击
+   * 2. Pan 工具激活时的左键
+   * 3. 按住 Space 时的左键
+   *
+   * @param {React.MouseEvent} e - 鼠标事件
+   * @returns {boolean} 是否应该平移
+   */
   const shouldPan = useCallback((e: React.MouseEvent) => {
-    return e.button === 1 || // Middle mouse
-           canvasTool === 'pan' || // Pan tool active
-           ((isSpacePressed || spacePressedRef.current) && e.button === 0); // Space + left click
+    return e.button === 1 ||  // 中键点击平移
+           canvasTool === 'pan' ||  // Pan 工具激活
+           ((isSpacePressed || spacePressedRef.current) && e.button === 0);  // Space + 左键平移
   }, [canvasTool, isSpacePressed]);
 
-  // Check if clicking on a section
+  /**
+   * 获取指定点上的区域
+   * 通过检查点是否在多边形内来判断
+   * 按照倒序检查（最后添加的区域优先，即显示在上层的区域优先）
+   *
+   * @param {Point} point - 检查的坐标点
+   * @returns {Section | null} 该点所在的区域，或 null
+   */
   const getSectionAtPoint = useCallback((point: Point): Section | null => {
-    // Check in reverse order (top sections first)
+    // 按倒序遍历区域，这样后添加的区域会优先被选中（在上层）
     for (let i = sections.length - 1; i >= 0; i--) {
       const section = sections[i];
       if (isPointInPolygon(point, section.points)) {
@@ -136,11 +209,21 @@ export const SVGCanvas: React.FC<SVGCanvasProps> = ({
     return null;
   }, [sections]);
 
-  // Check if clicking on a seat
+  /**
+   * 获取指定点上的座位
+   * 检查点距离座位中心的距离是否在座位半径范围内
+   *
+   * @param {Point} point - 检查的坐标点
+   * @param {Section | null} section - 要检查的区域（如果为 null 则不检查）
+   * @returns {Object | null} 返回座位和其所属区域，或 null
+   */
   const getSeatAtPoint = useCallback((point: Point, section: Section | null) => {
     if (!section) return null;
+    // 遍历区域内的所有座位
     for (const seat of section.seats) {
+      // 计算点到座位中心的距离
       const dist = Math.sqrt((seat.x - point.x) ** 2 + (seat.y - point.y) ** 2);
+      // 如果距离在座位半径范围内（加上 2 像素的容差），则认为点击中了座位
       if (dist <= seatRadius + 2) {
         return { seat, section };
       }
@@ -148,57 +231,80 @@ export const SVGCanvas: React.FC<SVGCanvasProps> = ({
     return null;
   }, [seatRadius]);
 
-  // Mouse event handlers
+  /**
+   * ========== 鼠标事件处理器 ==========
+   */
+
+  /**
+   * 处理鼠标按下事件
+   * 这是大多数交互的起点
+   *
+   * 处理的操作：
+   * 1. 检测平移操作
+   * 2. 绘制区域（添加多边形顶点）
+   * 3. 添加座位
+   * 4. 选择座位
+   * 5. 选择座位行
+   * 6. 沿线绘制座位
+   */
   const handleMouseDown = useCallback((e: React.MouseEvent) => {
     e.preventDefault();
     const pos = getMousePos(e);
 
+    // 检查是否触发平移
     if (shouldPan(e)) {
       setIsPanning(true);
       setPanStart({ x: e.clientX, y: e.clientY });
       return;
     }
 
+    // 只处理左键点击
     if (e.button !== 0) return;
 
+    // 在绘制区域模式下，添加顶点
     if (mode === 'draw-section') {
       onAddSectionPoint(pos);
     } else if (mode === 'draw-seat' && selectedSectionId) {
+      // 在编辑座位模式下，根据当前工具处理不同的操作
       const section = sections.find(s => s.id === selectedSectionId);
       if (!section) return;
 
       if (seatTool === 'select') {
+        // 选择工具：选择座位或开始拖拽/框选
         const seatInfo = getSeatAtPoint(pos, section);
 
         if (seatInfo) {
           const { seat } = seatInfo;
-          // If seat is not selected, select it first
+          // 如果座位未被选中，先选中它
           if (!selectedSeatIds.includes(seat.id)) {
             onSelectSeat(seat.id, e.shiftKey);
           }
-          // Prepare for dragging if not using Shift or Alt
+          // 准备拖拽操作（除非按下 Shift 或 Alt）
           if (!e.shiftKey && !isAltPressed) {
             setSeatDragStart(pos);
             setSeatDragOrigin(pos);
           }
         } else if (isAltPressed) {
-          // Lasso select mode (Alt + drag)
+          // Alt + 拖拽：套索选择模式
           setDragStart(pos);
           setDragCurrent(pos);
         } else {
-          // Box selection
+          // 框选模式
           setDragStart(pos);
           setDragCurrent(pos);
+          // 如果没有按 Shift，清空之前的选择
           if (!e.shiftKey) {
-            // Clear selection
             onSelectSeat('', false);
           }
         }
       } else if (seatTool === 'single') {
+        // 单个座位工具：点击直接添加座位
         onAddSeat(selectedSectionId, pos);
       } else if (seatTool === 'row') {
+        // 行工具：记录起始点
         setRowStartPoint(pos);
       } else if (seatTool === 'line') {
+        // 线工具：添加点到临时点集
         setTempPoints(prev => [...prev, pos]);
       }
     }
@@ -311,67 +417,97 @@ export const SVGCanvas: React.FC<SVGCanvasProps> = ({
         onEnterSection(section.id);
       }
     }
-  }, [mode, drawingPoints.length, tempPoints, selectedSectionId, seatTool, getMousePos, onCompleteSection, onEnterSection, getSectionAtPoint]);
+  }, [mode, drawingPoints.length, tempPoints, seatTool, getMousePos, onCompleteSection, onEnterSection, getSectionAtPoint]);
 
   const handleWheel = useCallback((e: React.WheelEvent) => {
-    e.preventDefault();
+    // e.preventDefault();
     const delta = e.deltaY > 0 ? 0.95 : 1.05;
     const pos = getMousePos(e);
     onZoom(delta, pos);
   }, [getMousePos, onZoom]);
 
-  // Keyboard handlers
+  /**
+   * ========== 键盘事件处理 ==========
+   * 处理所有键盘交互，包括：
+   * - Space 键：用于临时启用平移模式
+   * - Alt 键：用于启用套索选择模式
+   * - 箭头键：用于微调座位位置
+   * - Escape：取消当前操作
+   * - Enter：完成绘制或编辑
+   * - Delete/Backspace：删除选中的座位
+   */
   useEffect(() => {
+    /**
+     * 键盘按下事件处理
+     * 处理快捷键和组合键
+     */
     const handleKeyDown = (e: KeyboardEvent) => {
+      // Space 键：启用平移模式
       if (e.code === 'Space' && !e.repeat && !(e.target instanceof HTMLInputElement)) {
         e.preventDefault();
         spacePressedRef.current = true;
         setIsSpacePressed(true);
       }
+      // Alt 键：启用套索选择模式
       if (e.code === 'AltLeft' || e.code === 'AltRight') {
         setIsAltPressed(true);
       }
 
+      // 仅在有选中座位时处理箭头键
       if (selectedSectionId && selectedSeatIds.length > 0) {
         switch (e.key) {
           case 'ArrowUp':
+            // 向上移动：检查是否按下 Shift（10px 步长）或使用 1px 步长
             e.preventDefault();
             onNudgeSeats(selectedSectionId, selectedSeatIds, 'up');
             break;
           case 'ArrowDown':
+            // 向下移动
             e.preventDefault();
             onNudgeSeats(selectedSectionId, selectedSeatIds, 'down');
             break;
           case 'ArrowLeft':
+            // 向左移动
             e.preventDefault();
             onNudgeSeats(selectedSectionId, selectedSeatIds, 'left');
             break;
           case 'ArrowRight':
+            // 向右移动
             e.preventDefault();
             onNudgeSeats(selectedSectionId, selectedSeatIds, 'right');
             break;
         }
       }
 
+      // Escape 键：取消当前操作
       if (e.key === 'Escape') {
         if (mode === 'draw-section') {
+          // 取消区域绘制
           onCancelDrawing();
         } else if (mode === 'draw-seat' && tempPoints.length > 0) {
+          // 清空线工具的临时点
           setTempPoints([]);
         }
       }
+
+      // Enter 键：完成绘制或编辑
       if (e.key === 'Enter') {
         if (mode === 'draw-section' && drawingPoints.length >= 3) {
+          // 完成区域绘制（需要至少 3 个顶点）
           onCompleteSection();
         } else if (mode === 'draw-seat' && seatTool === 'line' && tempPoints.length >= 2) {
-          // Store pending data and show spacing input
+          // 完成线工具座位创建（需要至少 2 个点）
+          // 显示座位间距输入对话框
           setPendingLineData(tempPoints);
           setShowSpacingInput(true);
           setTempPoints([]);
         }
       }
+
+      // Delete 或 Backspace 键：删除选中的座位
       if (e.key === 'Delete' || e.key === 'Backspace') {
         if (selectedSeatIds.length > 0 && selectedSectionId) {
+          // 逐个删除所有选中的座位
           selectedSeatIds.forEach(seatId => {
             onDeleteSeat(selectedSectionId, seatId);
           });
@@ -379,24 +515,40 @@ export const SVGCanvas: React.FC<SVGCanvasProps> = ({
       }
     };
 
+    /**
+     * 键盘释放事件处理
+     * 处理按键释放时的清理工作
+     */
     const handleKeyUp = (e: KeyboardEvent) => {
+      // Space 键释放：禁用平移模式
       if (e.code === 'Space') {
         spacePressedRef.current = false;
         setIsSpacePressed(false);
       }
+      // Alt 键释放：禁用套索选择模式
       if (e.code === 'AltLeft' || e.code === 'AltRight') {
         setIsAltPressed(false);
       }
     };
 
+    /**
+     * 窗口失焦事件处理
+     * 当用户切换到其他应用时，清除所有按键状态
+     * 这是必要的，因为如果用户在按住 Space 时切换窗口，
+     * keyup 事件可能不会被触发
+     */
     const handleBlur = () => {
       spacePressedRef.current = false;
       setIsSpacePressed(false);
     };
 
+    // 注册事件监听器
+    // 使用捕获阶段（第三个参数为 true）以确保优先处理
     window.addEventListener('keydown', handleKeyDown, true);
     window.addEventListener('keyup', handleKeyUp, true);
     window.addEventListener('blur', handleBlur);
+
+    // 清理函数：卸载事件监听器
     return () => {
       window.removeEventListener('keydown', handleKeyDown, true);
       window.removeEventListener('keyup', handleKeyUp, true);
@@ -404,48 +556,75 @@ export const SVGCanvas: React.FC<SVGCanvasProps> = ({
     };
   }, [mode, drawingPoints.length, tempPoints.length, selectedSeatIds, selectedSectionId, seatTool, onCancelDrawing, onCompleteSection, onAddSeatsAlongLine, onDeleteSeat, onNudgeSeats]);
 
-  // Monitor selected seats and check if they belong to a group
+  /**
+   * 监控选中的座位，检查它们是否属于某个座位组
+   * 这用于显示座位组的信息面板和间距编辑
+   *
+   * 逻辑：
+   * 1. 如果没有选中座位或没有座位组，隐藏座位组信息
+   * 2. 找到包含任何选中座位的座位组
+   * 3. 如果恰好有一个座位组包含所有选中座位，显示该组的信息
+   * 4. 如果选中的座位来自多个不同的座位组，不显示任何信息
+   */
   useEffect(() => {
+    // 没有选中座位或没有座位组时，隐藏信息
     if (selectedSeatIds.length === 0 || !seatGroups || seatGroups.length === 0) {
       setSelectedGroupInfo(null);
       setEditingGroupSpacing(null);
       return;
     }
 
-    // Find groups that contain any of the selected seats
+    // 找到所有包含至少一个选中座位的座位组
     const groupsForSelectedSeats = seatGroups.filter(group =>
       selectedSeatIds.some(seatId => group.seatIds.includes(seatId))
     );
 
-    // If all selected seats belong to the same group, show group info
+    // 如果恰好有一个座位组包含选中的座位
     if (groupsForSelectedSeats.length === 1) {
       const group = groupsForSelectedSeats[0];
       const seatCount = group.seatIds.length;
+      // 显示座位组信息和初始化编辑的间距值
       setSelectedGroupInfo({ group, seatCount });
       setEditingGroupSpacing(group.spacing);
     } else if (groupsForSelectedSeats.length === 0) {
+      // 选中的座位不属于任何座位组
       setSelectedGroupInfo(null);
       setEditingGroupSpacing(null);
     } else {
-      // Multiple different groups selected - show nothing for now
+      // 选中的座位属于多个不同的座位组，不显示信息
       setSelectedGroupInfo(null);
       setEditingGroupSpacing(null);
     }
   }, [selectedSeatIds, seatGroups]);
 
-  // Render helpers
+  /**
+   * ========== 渲染辅助函数 ==========
+   * 这些函数用于生成 SVG 图形元素
+   * 分别负责渲染不同的图层和元素
+   */
+
+  /**
+   * 渲染画布背景
+   * 如果有 SVG 底图，则显示 SVG 图像
+   * 否则显示纯色矩形背景
+   *
+   * @returns {JSX.Element} 背景元素
+   */
   const renderBackground = () => {
     if (svgUrl) {
+      // 显示上传的 SVG 底图
+      // 在座位编辑模式下，降低透明度以便看清座位
       return (
         <image
           href={svgUrl}
           width={width}
           height={height}
           preserveAspectRatio="xMidYMid meet"
-          opacity={mode === 'draw-seat' ? 0.8 : 1}
+          opacity={mode === 'draw-seat' ? 0.8 : 1}  // 座位编辑模式下 80% 透明度
         />
       );
     }
+    // 显示纯色背景
     return (
       <rect
         width={width}
@@ -457,79 +636,115 @@ export const SVGCanvas: React.FC<SVGCanvasProps> = ({
     );
   };
 
+  /**
+   * 渲染网格
+   * 使用 SVG 的 pattern 元素创建可重复的网格图案
+   *
+   * @returns {JSX.Element | null} 网格元素或 null（如果禁用网格显示）
+   */
   const renderGrid = () => {
     if (!viewConfig.showGrid) return null;
-    
+
     return (
       <>
         <defs>
-          <pattern 
-            id="grid" 
-            width={viewConfig.gridSize} 
-            height={viewConfig.gridSize} 
+          {/* 定义网格图案 */}
+          <pattern
+            id="grid"
+            width={viewConfig.gridSize}
+            height={viewConfig.gridSize}
             patternUnits="userSpaceOnUse"
           >
-            <path 
-              d={`M ${viewConfig.gridSize} 0 L 0 0 0 ${viewConfig.gridSize}`} 
-              fill="none" 
-              stroke={viewConfig.gridColor} 
+            {/* 使用路径绘制网格线 */}
+            {/* M = moveTo（移动到），L = lineTo（线条到） */}
+            <path
+              d={`M ${viewConfig.gridSize} 0 L 0 0 0 ${viewConfig.gridSize}`}
+              fill="none"
+              stroke={viewConfig.gridColor}
               strokeWidth="0.5"
             />
           </pattern>
         </defs>
+        {/* 使用网格图案填充整个画布 */}
         <rect width={width} height={height} fill="url(#grid)" />
       </>
     );
   };
 
+  /**
+   * 渲染所有区域
+   * 每个区域显示为多边形，包含标签和座位数量徽章
+   *
+   * @returns {JSX.Element[]} 区域 SVG 元素数组
+   */
   const renderSections = () => {
     return sections.map(section => {
-      const isSelected = section.id === selectedSectionId;
-      const isHovered = section.id === hoveredSectionId;
+      const isSelected = section.id === selectedSectionId;      // 是否选中
+      const isHovered = section.id === hoveredSectionId;        // 是否悬停
+      // 将点坐标转换为 SVG polygon 格式的字符串
       const pointsStr = section.points.map(p => `${p.x},${p.y}`).join(' ');
-      
+
       return (
         <g key={section.id}>
+          {/* 区域多边形 */}
           <polygon
             points={pointsStr}
             fill={section.color}
+            // 动态调整填充不透明度：选中时 15%、悬停时 25%、正常时使用配置的透明度
             fillOpacity={isSelected ? 0.15 : isHovered ? 0.25 : section.opacity}
+            // 选中时使用蓝色边框，否则使用区域颜色
             stroke={isSelected ? '#3b82f6' : section.color}
+            // 选中时边框粗 3px，悬停时 2.5px，否则 2px
             strokeWidth={isSelected ? 3 : isHovered ? 2.5 : 2}
+            // 选中时为实线，否则为虚线（5px 线 + 5px 间隙）
             strokeDasharray={isSelected ? 'none' : '5,5'}
-            style={{ 
+            style={{
+              // 在查看模式下显示指针光标
               cursor: mode === 'view' ? 'pointer' : 'default',
+              // 平滑过渡样式变化（150ms）
               transition: 'all 0.15s ease'
             }}
+            // 双击进入区域编辑模式
             onDoubleClick={() => {
               console.log('double click section', section.id);
               if (mode === 'view') {
                 onEnterSection(section.id);
               }
             }}
+            // 鼠标进入/离开时更新悬停状态
             onMouseEnter={() => setHoveredSectionId(section.id)}
             onMouseLeave={() => setHoveredSectionId(null)}
           />
-          {/* Section label */}
+
+          {/* 区域标签：显示区域名称 */}
+          {/* 位置：区域多边形的中心点 */}
           <text
+            // 计算多边形中心的 X 坐标：所有点的 X 坐标平均值
             x={section.points.reduce((sum, p) => sum + p.x, 0) / section.points.length}
+            // 计算多边形中心的 Y 坐标：所有点的 Y 坐标平均值
             y={section.points.reduce((sum, p) => sum + p.y, 0) / section.points.length}
-            textAnchor="middle"
-            dominantBaseline="middle"
-            fill={section.color}
+            textAnchor="middle"              // 文本水平居中
+            dominantBaseline="middle"        // 文本垂直居中
+            fill={section.color}             // 使用区域颜色
             fontSize={14}
             fontWeight="bold"
-            pointerEvents="none"
-            style={{ 
+            pointerEvents="none"             // 不拦截鼠标事件
+            style={{
+              // 文本阴影效果，使文本在背景上更易读
               textShadow: '0 0 4px rgba(255,255,255,0.8)',
+              // 悬停或选中时增加不透明度
               opacity: isHovered || isSelected ? 1 : 0.8
             }}
           >
             {section.name}
           </text>
-          {/* Seat count badge */}
+
+          {/* 座位数量徽章：显示该区域的座位总数 */}
+          {/* 位置：区域中心右侧 40px */}
           <g transform={`translate(${section.points.reduce((sum, p) => sum + p.x, 0) / section.points.length + 40}, ${section.points.reduce((sum, p) => sum + p.y, 0) / section.points.length})`}>
+            {/* 徽章背景：白色圆形 */}
             <circle r={12} fill="white" stroke={section.color} strokeWidth={1.5} />
+            {/* 座位数字 */}
             <text
               textAnchor="middle"
               dominantBaseline="middle"
@@ -546,6 +761,19 @@ export const SVGCanvas: React.FC<SVGCanvasProps> = ({
     });
   };
 
+  /**
+   * 渲染所有座位
+   * 只有在选中了某个区域时才显示该区域的座位
+   *
+   * 为每个座位渲染：
+   * 1. 拖拽指示器（当座位被拖拽时）
+   * 2. 选中指示器（淡蓝色圆环）
+   * 3. 座位圆形
+   * 4. 座位编号（文本）
+   * 5. 悬停时的工具提示
+   *
+   * @returns {JSX.Element[]} 座位元素数组
+   */
   const renderSeats = () => {
     if (!selectedSectionId) return null;
 
@@ -559,7 +787,7 @@ export const SVGCanvas: React.FC<SVGCanvasProps> = ({
 
       return (
         <g key={seat.id}>
-          {/* Dragging indicator */}
+          {/* 拖拽指示器：当座位被拖拽时显示红色脉冲圆环 */}
           {isDragging && (
             <circle
               cx={seat.x}
@@ -571,12 +799,12 @@ export const SVGCanvas: React.FC<SVGCanvasProps> = ({
               opacity={0.7}
               pointerEvents="none"
               style={{
-                animation: 'pulse 0.5s ease-in-out infinite'
+                animation: 'pulse 0.5s ease-in-out infinite'  // 脉冲动画
               }}
             />
           )}
 
-          {/* Selection aura */}
+          {/* 选中指示器：选中但未拖拽时显示黄色虚线圆环 */}
           {isSelected && !isDragging && (
             <circle
               cx={seat.x}
@@ -591,17 +819,25 @@ export const SVGCanvas: React.FC<SVGCanvasProps> = ({
             />
           )}
 
+          {/* 座位圆形 */}
           <circle
             cx={seat.x}
             cy={seat.y}
             r={seatRadius}
+            // 座位颜色：拖拽时红色、选中时黄色、否则使用座位自定义颜色或蓝色
             fill={isDragging ? '#ef4444' : isSelected ? '#f59e0b' : seat.color || '#3b82f6'}
+            // 边框颜色：拖拽时深红色、选中时深黄色、悬停时深蓝色
             stroke={isDragging ? '#991b1b' : isSelected ? '#d97706' : isHovered ? '#1e40af' : '#1e40af'}
+            // 边框粗度：拖拽或选中时 3px，悬停时 2px，否则 1px
             strokeWidth={isDragging ? 3 : isSelected ? 3 : isHovered ? 2 : 1}
             style={{
+              // 选择工具时显示抓手光标，否则显示指针
               cursor: seatTool === 'select' ? (isDragging ? 'grabbing' : 'grab') : 'pointer',
+              // 拖拽时不过渡（立即变化），否则平滑过渡
               transition: isDragging ? 'none' : 'all 0.1s ease',
+              // 悬停或拖拽时增加亮度
               filter: isHovered || isDragging ? 'brightness(1.1)' : 'none',
+              // 拖拽时降低透明度
               opacity: isDragging ? 0.9 : 1
             }}
             onClick={(e) => {

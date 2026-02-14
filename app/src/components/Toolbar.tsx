@@ -1,11 +1,26 @@
+/**
+ * 工具栏组件
+ *
+ * 工具栏是应用的主要交互界面，包含：
+ * 1. 文件操作：上传 SVG、导出、导入
+ * 2. 编辑操作：撤销、重做
+ * 3. 画布工具：自动模式、平移模式
+ * 4. 编辑模式：视图、绘制区域
+ * 5. 座位工具：选择、单个、行、线
+ * 6. 配置：绘制设置
+ * 7. 视图控制：网格、吸附、缩放、视图重置
+ *
+ * 根据当前编辑模式和上下文动态显示/隐藏相关按钮
+ */
+
 import React, { useState } from 'react';
-import { 
-  Upload, 
-  Square, 
-  MousePointer2, 
-  Circle, 
-  Rows3, 
-  Route, 
+import {
+  Upload,
+  Square,
+  MousePointer2,
+  Circle,
+  Rows3,
+  Route,
   LogOut,
   RotateCcw,
   Download,
@@ -42,35 +57,42 @@ import {
 } from '@/components/ui/dropdown-menu';
 import type { EditorMode, SeatTool, CanvasTool, ViewConfig } from '@/types';
 
+/**
+ * 工具栏组件的 Props 接口
+ * 定义了所有需要传入的属性和回调函数
+ */
 interface ToolbarProps {
-  mode: EditorMode;
-  seatTool: SeatTool;
-  canvasTool: CanvasTool;
-  hasSvg: boolean;
-  isInSection: boolean;
-  zoom: number;
-  viewConfig: ViewConfig;
-  canUndo: boolean;
-  canRedo: boolean;
-  onUploadClick: () => void;
-  onModeChange: (mode: EditorMode) => void;
-  onSeatToolChange: (tool: SeatTool) => void;
-  onCanvasToolChange: (tool: CanvasTool) => void;
-  onExitSection: () => void;
-  onZoomIn: () => void;
-  onZoomOut: () => void;
-  onZoomChange: (zoom: number) => void;
-  onResetView: () => void;
-  onFitToView: () => void;
-  onExport: () => void;
-  onImport: () => void;
-  onUndo: () => void;
-  onRedo: () => void;
-  onShowConfig: () => void;
-  onToggleGrid: () => void;
-  onToggleSnap: () => void;
+  mode: EditorMode;                    // 当前编辑模式
+  seatTool: SeatTool;                  // 当前座位工具
+  canvasTool: CanvasTool;              // 当前画布工具
+  hasSvg: boolean;                     // 是否已上传 SVG 底图
+  isInSection: boolean;                // 是否在区域编辑模式中
+  zoom: number;                        // 当前缩放比例
+  viewConfig: ViewConfig;              // 视图配置
+  canUndo: boolean;                    // 是否可以撤销
+  canRedo: boolean;                    // 是否可以重做
+  onUploadClick: () => void;           // 上传 SVG 的回调
+  onModeChange: (mode: EditorMode) => void;  // 编辑模式变化的回调
+  onSeatToolChange: (tool: SeatTool) => void;  // 座位工具变化的回调
+  onCanvasToolChange: (tool: CanvasTool) => void;  // 画布工具变化的回调
+  onExitSection: () => void;           // 退出区域编辑的回调
+  onZoomIn: () => void;                // 放大的回调
+  onZoomOut: () => void;               // 缩小的回调
+  onZoomChange: (zoom: number) => void;  // 缩放值变化的回调
+  onResetView: () => void;             // 重置视图的回调
+  onFitToView: () => void;             // 适配到视图的回调
+  onExport: () => void;                // 导出数据的回调
+  onImport: () => void;                // 导入数据的回调
+  onUndo: () => void;                  // 撤销的回调
+  onRedo: () => void;                  // 重做的回调
+  onShowConfig: () => void;            // 显示配置对话框的回调
+  onToggleGrid: () => void;            // 切换网格显示的回调
+  onToggleSnap: () => void;            // 切换网格吸附的回调
 }
 
+/**
+ * 工具栏函数组件
+ */
 export const Toolbar: React.FC<ToolbarProps> = ({
   mode,
   seatTool,
@@ -99,16 +121,18 @@ export const Toolbar: React.FC<ToolbarProps> = ({
   onToggleGrid,
   onToggleSnap,
 }) => {
+  // 本地状态：是否显示缩放滑块
   const [showZoomSlider, setShowZoomSlider] = useState(false);
 
+  // 计算缩放百分比用于显示
   const zoomPercent = Math.round(zoom * 100);
 
   return (
     <TooltipProvider delayDuration={200}>
       <div className="flex items-center gap-2 p-3 bg-white border-b shadow-sm">
-        {/* Svg 文件上传区域 */}
+        {/* ========== 第一组：文件操作 ========== */}
         <div className="flex items-center gap-1">
-          {/* Svg 文件上传按钮 */}
+          {/* 上传 SVG 文件按钮 */}
           <Tooltip>
             <TooltipTrigger asChild>
               <Button
@@ -125,8 +149,8 @@ export const Toolbar: React.FC<ToolbarProps> = ({
               <p>Upload venue floor plan</p>
             </TooltipContent>
           </Tooltip>
-          
-          {/* 数据导出按钮 */}
+
+          {/* 导出数据按钮 */}
           <Tooltip>
             <TooltipTrigger asChild>
               <Button
@@ -141,8 +165,8 @@ export const Toolbar: React.FC<ToolbarProps> = ({
               <p>Export configuration</p>
             </TooltipContent>
           </Tooltip>
-          
-          {/* 数据导入按钮 */}
+
+          {/* 导入数据按钮 */}
           <Tooltip>
             <TooltipTrigger asChild>
               <Button
@@ -161,7 +185,7 @@ export const Toolbar: React.FC<ToolbarProps> = ({
 
         <Separator orientation="vertical" className="h-8" />
 
-        {/* 撤销/返回按钮 */}
+        {/* ========== 第二组：撤销/重做 ========== */}
         <div className="flex items-center gap-1">
           <Tooltip>
             <TooltipTrigger asChild>
@@ -178,7 +202,7 @@ export const Toolbar: React.FC<ToolbarProps> = ({
               <p>Undo (Ctrl+Z)</p>
             </TooltipContent>
           </Tooltip>
-          
+
           <Tooltip>
             <TooltipTrigger asChild>
               <Button
@@ -198,8 +222,9 @@ export const Toolbar: React.FC<ToolbarProps> = ({
 
         <Separator orientation="vertical" className="h-8" />
 
-        {/* Canvas Tools */}
+        {/* ========== 第三组：画布工具 ========== */}
         <div className="flex items-center gap-1">
+          {/* 自动模式 */}
           <Tooltip>
             <TooltipTrigger asChild>
               <Button
@@ -216,7 +241,8 @@ export const Toolbar: React.FC<ToolbarProps> = ({
               <p>Auto mode - Hold Space to pan</p>
             </TooltipContent>
           </Tooltip>
-          
+
+          {/* 平移模式 */}
           <Tooltip>
             <TooltipTrigger asChild>
               <Button
@@ -237,9 +263,11 @@ export const Toolbar: React.FC<ToolbarProps> = ({
 
         <Separator orientation="vertical" className="h-8" />
 
-        {/* View Controls */}
+        {/* ========== 第四组：编辑模式和座位工具（条件渲染）========== */}
+        {/* 仅在不在区域编辑模式时显示编辑模式选择 */}
         {!isInSection && (
           <div className="flex items-center gap-1">
+            {/* 选择/查看模式 */}
             <Tooltip>
               <TooltipTrigger asChild>
                 <Button
@@ -256,7 +284,8 @@ export const Toolbar: React.FC<ToolbarProps> = ({
                 <p>Double-click section to edit</p>
               </TooltipContent>
             </Tooltip>
-            
+
+            {/* 绘制区域模式 */}
             <Tooltip>
               <TooltipTrigger asChild>
                 <Button
@@ -277,14 +306,16 @@ export const Toolbar: React.FC<ToolbarProps> = ({
           </div>
         )}
 
-        {/* Seat Tools */}
+        {/* 仅在区域编辑模式时显示座位工具 */}
         {isInSection && (
           <>
             <div className="flex items-center gap-1">
+              {/* 区域模式标签 */}
               <Badge variant="secondary" className="mr-2">
                 Section Mode
               </Badge>
-              
+
+              {/* 选择工具 */}
               <Tooltip>
                 <TooltipTrigger asChild>
                   <Button
@@ -301,7 +332,8 @@ export const Toolbar: React.FC<ToolbarProps> = ({
                   <p>Select seats (V) - Alt+Drag for lasso</p>
                 </TooltipContent>
               </Tooltip>
-              
+
+              {/* 单个座位工具 */}
               <Tooltip>
                 <TooltipTrigger asChild>
                   <Button
@@ -318,7 +350,8 @@ export const Toolbar: React.FC<ToolbarProps> = ({
                   <p>Single seat (S)</p>
                 </TooltipContent>
               </Tooltip>
-              
+
+              {/* 行工具 */}
               <Tooltip>
                 <TooltipTrigger asChild>
                   <Button
@@ -335,7 +368,8 @@ export const Toolbar: React.FC<ToolbarProps> = ({
                   <p>Row of seats (R)</p>
                 </TooltipContent>
               </Tooltip>
-              
+
+              {/* 线工具 */}
               <Tooltip>
                 <TooltipTrigger asChild>
                   <Button
@@ -353,9 +387,10 @@ export const Toolbar: React.FC<ToolbarProps> = ({
                 </TooltipContent>
               </Tooltip>
             </div>
-            
+
             <Separator orientation="vertical" className="h-8" />
-            
+
+            {/* 配置按钮 */}
             <Tooltip>
               <TooltipTrigger asChild>
                 <Button
@@ -370,9 +405,10 @@ export const Toolbar: React.FC<ToolbarProps> = ({
                 <p>Drawing Settings</p>
               </TooltipContent>
             </Tooltip>
-            
+
             <Separator orientation="vertical" className="h-8" />
-            
+
+            {/* 退出区域编辑模式按钮 */}
             <Tooltip>
               <TooltipTrigger asChild>
                 <Button
@@ -392,9 +428,10 @@ export const Toolbar: React.FC<ToolbarProps> = ({
           </>
         )}
 
+        {/* 占位符：将后续元素推向右侧 */}
         <div className="flex-1" />
 
-        {/* View Options */}
+        {/* ========== 第五组：视图选项 ========== */}
         <div className="flex items-center gap-1">
           <DropdownMenu>
             <DropdownMenuTrigger asChild>
@@ -405,20 +442,29 @@ export const Toolbar: React.FC<ToolbarProps> = ({
             <DropdownMenuContent align="end">
               <DropdownMenuLabel>View Options</DropdownMenuLabel>
               <DropdownMenuSeparator />
+
+              {/* 网格显示/隐藏 */}
               <DropdownMenuItem onClick={onToggleGrid}>
                 {viewConfig.showGrid ? <Eye className="w-4 h-4 mr-2" /> : <EyeOff className="w-4 h-4 mr-2" />}
                 {viewConfig.showGrid ? 'Hide Grid' : 'Show Grid'}
               </DropdownMenuItem>
+
+              {/* 网格吸附 */}
               <DropdownMenuItem onClick={onToggleSnap}>
                 <Magnet className={`w-4 h-4 mr-2 ${viewConfig.snapToGrid ? 'text-blue-500' : ''}`} />
                 Snap to Grid
                 {viewConfig.snapToGrid && <span className="ml-auto text-blue-500">✓</span>}
               </DropdownMenuItem>
+
               <DropdownMenuSeparator />
+
+              {/* 适配到视图 */}
               <DropdownMenuItem onClick={onFitToView}>
                 <Maximize className="w-4 h-4 mr-2" />
                 Fit to View
               </DropdownMenuItem>
+
+              {/* 重置视图 */}
               <DropdownMenuItem onClick={onResetView}>
                 <RotateCcw className="w-4 h-4 mr-2" />
                 Reset View
@@ -429,8 +475,9 @@ export const Toolbar: React.FC<ToolbarProps> = ({
 
         <Separator orientation="vertical" className="h-8" />
 
-        {/* Zoom Controls */}
+        {/* ========== 第六组：缩放控制 ========== */}
         <div className="flex items-center gap-1">
+          {/* 缩小按钮 */}
           <Tooltip>
             <TooltipTrigger asChild>
               <Button variant="outline" size="icon" onClick={onZoomOut}>
@@ -441,13 +488,14 @@ export const Toolbar: React.FC<ToolbarProps> = ({
               <p>Zoom Out</p>
             </TooltipContent>
           </Tooltip>
-          
+
+          {/* 缩放显示和滑块 */}
           <div className="relative">
             <Tooltip>
               <TooltipTrigger asChild>
-                <Button 
-                  variant="outline" 
-                  size="sm" 
+                <Button
+                  variant="outline"
+                  size="sm"
                   className="w-16"
                   onClick={() => setShowZoomSlider(!showZoomSlider)}
                 >
@@ -458,7 +506,8 @@ export const Toolbar: React.FC<ToolbarProps> = ({
                 <p>Click to adjust zoom</p>
               </TooltipContent>
             </Tooltip>
-            
+
+            {/* 缩放滑块下拉菜单 */}
             {showZoomSlider && (
               <div className="absolute top-full mt-2 left-1/2 -translate-x-1/2 bg-white border rounded-lg shadow-lg p-3 z-50 w-48">
                 <div className="flex items-center gap-2">
@@ -478,7 +527,8 @@ export const Toolbar: React.FC<ToolbarProps> = ({
               </div>
             )}
           </div>
-          
+
+          {/* 放大按钮 */}
           <Tooltip>
             <TooltipTrigger asChild>
               <Button variant="outline" size="icon" onClick={onZoomIn}>
