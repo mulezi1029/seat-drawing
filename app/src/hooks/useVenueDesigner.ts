@@ -177,15 +177,17 @@ export function useVenueDesigner() {
   }, []);
 
   // Section Management
+  // 开始绘制 section
   const startSectionDrawing = useCallback(() => {
     setEditorState(prev => ({
       ...prev,
       mode: 'draw-section',
       isDrawing: true,
-      drawingPoints: [],
+      drawingPoints: [],  // 记录绘制点的数组
     }));
   }, []);
 
+  // 添加 section 点
   const addSectionPoint = useCallback((point: Point) => {
     // Get current config values (not from closure)
     const snapEnabled = viewConfigRef.current.snapToGrid;

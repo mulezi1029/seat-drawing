@@ -201,14 +201,8 @@ export const SVGCanvas: React.FC<SVGCanvasProps> = ({
       } else if (seatTool === 'line') {
         setTempPoints(prev => [...prev, pos]);
       }
-    } else if (mode === 'view') {
-      // In view mode, clicking on section enters it
-      const section = getSectionAtPoint(pos);
-      if (section) {
-        onEnterSection(section.id);
-      }
     }
-  }, [mode, selectedSectionId, seatTool, canvasTool, isSpacePressed, isAltPressed, sections, selectedSeatIds, getMousePos, shouldPan, onAddSectionPoint, onAddSeat, onSelectSeat, onEnterSection, getSectionAtPoint, getSeatAtPoint]);
+  }, [mode, selectedSectionId, seatTool, isAltPressed, sections, selectedSeatIds, getMousePos, shouldPan, onAddSectionPoint, onAddSeat, onSelectSeat, getSeatAtPoint]);
 
   const handleMouseMove = useCallback((e: React.MouseEvent) => {
     const pos = getMousePos(e);
@@ -507,7 +501,8 @@ export const SVGCanvas: React.FC<SVGCanvasProps> = ({
               cursor: mode === 'view' ? 'pointer' : 'default',
               transition: 'all 0.15s ease'
             }}
-            onClick={() => {
+            onDoubleClick={() => {
+              console.log('double click section', section.id);
               if (mode === 'view') {
                 onEnterSection(section.id);
               }

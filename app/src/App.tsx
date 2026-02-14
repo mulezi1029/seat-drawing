@@ -103,13 +103,20 @@ function App() {
   }, [handleSvgUpload]);
 
   const handleModeChange = useCallback((mode: typeof editorState.mode) => {
+    console.log('handleModeChange', mode, editorState.mode);
+    // 当前模式与新模式相同，则直接返回
+    if (mode === editorState.mode) {
+      return;
+    }
+    // 如果新模式是绘制 section，则直接开始绘制 section
     if (mode === 'draw-section') {
       startSectionDrawing();
     } else {
       setMode(mode);
     }
-  }, [startSectionDrawing, setMode]);
+  }, [startSectionDrawing, setMode, editorState]);
 
+  // 完成绘制 section
   const handleCompleteSection = useCallback((name: string) => {
     completeSectionDrawing(name);
     setShowSectionDialog(false);
@@ -184,7 +191,8 @@ function App() {
 
   return (
     <TooltipProvider delayDuration={300}>
-    <div className="h-screen flex flex-col bg-slate-50 overflow-hidden">
+      <div className="h-screen flex flex-col bg-slate-50 overflow-hidden">
+        {/* 上传SVG文件触发input元素 */}
       <input
         ref={fileInputRef}
         type="file"
@@ -193,7 +201,7 @@ function App() {
         className="hidden"
       />
 
-      {/* Header */}
+      {/* 头部 */}
       <header className="bg-white border-b px-4 py-3 flex items-center justify-between flex-shrink-0">
         <div className="flex items-center gap-3">
           <div className="w-10 h-10 bg-gradient-to-br from-blue-500 to-purple-600 rounded-xl flex items-center justify-center">
@@ -220,7 +228,7 @@ function App() {
         </div>
       </header>
 
-      {/* Toolbar */}
+      {/* 工具栏组件 */}
       <Toolbar
         mode={editorState.mode}
         seatTool={editorState.seatTool}
@@ -250,9 +258,9 @@ function App() {
         onToggleSnap={() => updateViewConfig({ snapToGrid: !viewConfig.snapToGrid })}
       />
 
-      {/* Main Content */}
+      {/* 主内容 */}
       <div className="flex-1 flex overflow-hidden">
-        {/* Left Panel - Sections */}
+        {/* 左侧面板 - 区域面板信息 */}
         {showLeftPanel && (
           <div className="h-full overflow-hidden">
             <SectionPanel
@@ -265,7 +273,7 @@ function App() {
           </div>
         )}
         
-        {/* Toggle Left Panel */}
+        {/* 切换左侧面板显示/隐藏按钮 */}
         <button
           className="w-6 bg-slate-100 hover:bg-slate-200 flex items-center justify-center border-x flex-shrink-0"
           onClick={() => setShowLeftPanel(!showLeftPanel)}
@@ -273,7 +281,7 @@ function App() {
           {showLeftPanel ? <ChevronLeft className="w-4 h-4" /> : <ChevronRight className="w-4 h-4" />}
         </button>
 
-        {/* Canvas */}
+        {/* 画布 */}
         <div className="flex-1 relative overflow-hidden">
           <SVGCanvas
             svgUrl={venueMap.svgUrl}

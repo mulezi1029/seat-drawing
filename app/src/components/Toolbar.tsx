@@ -106,8 +106,9 @@ export const Toolbar: React.FC<ToolbarProps> = ({
   return (
     <TooltipProvider delayDuration={200}>
       <div className="flex items-center gap-2 p-3 bg-white border-b shadow-sm">
-        {/* File Operations */}
+        {/* Svg 文件上传区域 */}
         <div className="flex items-center gap-1">
+          {/* Svg 文件上传按钮 */}
           <Tooltip>
             <TooltipTrigger asChild>
               <Button
@@ -125,6 +126,7 @@ export const Toolbar: React.FC<ToolbarProps> = ({
             </TooltipContent>
           </Tooltip>
           
+          {/* 数据导出按钮 */}
           <Tooltip>
             <TooltipTrigger asChild>
               <Button
@@ -140,6 +142,7 @@ export const Toolbar: React.FC<ToolbarProps> = ({
             </TooltipContent>
           </Tooltip>
           
+          {/* 数据导入按钮 */}
           <Tooltip>
             <TooltipTrigger asChild>
               <Button
@@ -158,7 +161,7 @@ export const Toolbar: React.FC<ToolbarProps> = ({
 
         <Separator orientation="vertical" className="h-8" />
 
-        {/* Undo/Redo */}
+        {/* 撤销/返回按钮 */}
         <div className="flex items-center gap-1">
           <Tooltip>
             <TooltipTrigger asChild>
