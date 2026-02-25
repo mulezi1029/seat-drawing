@@ -144,7 +144,6 @@ function App() {
    * 平移控制 - 基于 DOM 实际滚动位置计算，避免状态延迟问题
    */
   const handlePanWithSync = useCallback((deltaX: number, deltaY: number) => {
-    debugger;
     if (canvasContainerRef.current) {
       const { scrollLeft, scrollTop } = canvasContainerRef.current;
       // 直接使用 DOM 当前值 + delta，避免状态延迟
@@ -179,8 +178,9 @@ function App() {
         <PanelLeft activeTool={activeTool} onToolChange={handleToolChange} />
 
         {/* 中央画布区域 */}
-        <div ref={canvasContainerRef} className="flex-1 relative bg-white overflow-scroll">
+        <div tabIndex={-1} className="flex-1 relative bg-white overflow-hidden">
           <Canvas
+            ref={canvasContainerRef}
             scale={scale}
             offsetX={offsetX}
             offsetY={offsetY}

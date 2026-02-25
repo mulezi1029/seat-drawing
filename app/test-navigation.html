@@ -1,0 +1,160 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="UTF-8">
+  <title>Navigation Controls Test</title>
+  <style>
+    body { font-family: Arial, sans-serif; padding: 20px; }
+    .test-container { margin: 20px 0; padding: 20px; border: 1px solid #ccc; }
+    .scroll-container {
+      width: 400px;
+      height: 300px;
+      overflow: scroll;
+      border: 2px solid #333;
+      position: relative;
+    }
+    .content {
+      width: 2000px;
+      height: 2000px;
+      background: linear-gradient(45deg, #f0f0f0 25%, transparent 25%),
+                  linear-gradient(-45deg, #f0f0f0 25%, transparent 25%),
+                  linear-gradient(45deg, transparent 75%, #f0f0f0 75%),
+                  linear-gradient(-45deg, transparent 75%, #f0f0f0 75%);
+      background-size: 100px 100px;
+      background-position: 0 0, 0 50px, 50px -50px, -50px 0px;
+    }
+    .controls {
+      margin-top: 10px;
+      display: flex;
+      gap: 10px;
+      align-items: center;
+    }
+    button {
+      padding: 8px 16px;
+      cursor: pointer;
+    }
+    .status {
+      margin-top: 10px;
+      padding: 10px;
+      background: #f5f5f5;
+      font-family: monospace;
+    }
+    .nav-ring {
+      position: relative;
+      width: 64px;
+      height: 64px;
+      background: white;
+      border-radius: 50%;
+      box-shadow: 0 2px 8px rgba(0,0,0,0.15);
+      border: 1px solid #e5e5e5;
+    }
+    .nav-ring button {
+      position: absolute;
+      padding: 4px;
+      background: transparent;
+      border: none;
+      cursor: pointer;
+    }
+    .nav-ring button:hover { background: #f0f0f0; border-radius: 4px; }
+    .nav-up { top: 4px; left: 50%; transform: translateX(-50%); }
+    .nav-down { bottom: 4px; left: 50%; transform: translateX(-50%); }
+    .nav-left { left: 4px; top: 50%; transform: translateY(-50%); }
+    .nav-right { right: 4px; top: 50%; transform: translateY(-50%); }
+  </style>
+</head>
+<body>
+  <h1>Navigation Controls Test</h1>
+
+  <div class="test-container">
+    <h2>Test: Scroll Position Sync</h2>
+    <p>This test simulates the scenario where user drags the canvas, then clicks navigation controls.</p>
+
+    <div class="scroll-container" id="scrollContainer">
+      <div class="content"></div>
+    </div>
+
+    <div class="controls">
+      <div class="nav-ring">
+        <button class="nav-up" onclick="pan(0, -100)">↑</button>
+        <button class="nav-down" onclick="pan(0, 100)">↓</button>
+        <button class="nav-left" onclick="pan(-100, 0)">←</button>
+        <button class="nav-right" onclick="pan(100, 0)">→</button>
+      </div>
+
+      <button onclick="simulateDrag()">Simulate Mouse Drag</button>
+      <button onclick="resetPosition()">Reset</button>
+    </div>
+
+    <div class="status" id="status">
+      scrollLeft: 800, scrollTop: 800
+    </div>
+  </div>
+
+  <script>
+    const container = document.getElementById('scrollContainer');
+    const status = document.getElementById('status');
+
+    // Initial center position
+    container.scrollLeft = 800;
+    container.scrollTop = 800;
+
+    let reactState = { x: 800, y: 800 }; // Simulates React state
+
+    function updateStatus() {
+      status.textContent = `DOM scrollLeft: ${container.scrollLeft}, scrollTop: ${container.scrollTop} | React State: x=${reactState.x}, y=${reactState.y}`;
+    }
+
+    // Simulate the FIXED approach - read from DOM directly
+    function pan(deltaX, deltaY) {
+      // FIXED: Read actual DOM position instead of using stale React state
+      const newLeft = container.scrollLeft + deltaX;
+      const newTop = container.scrollTop + deltaY;
+
+      container.scrollLeft = newLeft;
+      container.scrollTop = newTop;
+
+      // Update React state to match
+      reactState.x = newLeft;
+      reactState.y = newTop;
+
+      updateStatus();
+    }
+
+    // Simulate mouse drag (direct DOM manipulation without updating React state)
+    function simulateDrag() {
+      // This simulates what happens during Canvas.tsx mouse drag
+      container.scrollLeft += 200;
+      container.scrollTop += 150;
+
+      // Note: React state is NOT updated during drag (as in original code)
+      // This creates the sync issue
+
+      updateStatus();
+
+      alert('Drag simulated! Notice DOM position changed but React state is stale. Now click navigation arrows to test if fix works.');
+    }
+
+    function resetPosition() {
+      container.scrollLeft = 800;
+      container.scrollTop = 800;
+      reactState.x = 800;
+      reactState.y = 800;
+      updateStatus();
+    }
+
+    // Update status on scroll
+    container.addEventListener('scroll', updateStatus);
+    updateStatus();
+  </script>
+
+  <div class="test-container">
+    <h3>Test Instructions:</h3>
+    <ol>
+      <li>Click "Simulate Mouse Drag" to move the canvas via direct DOM manipulation (like mouse drag)</li>
+      <li>Notice the DOM position changes but "React State" stays stale</li>
+      <li>Click any navigation arrow - with the fix, it should pan from the current DOM position</li>
+      <li>Without the fix, it would jump back to the stale React state position</li>
+    </ol>
+  </div>
+</body>
+</html>

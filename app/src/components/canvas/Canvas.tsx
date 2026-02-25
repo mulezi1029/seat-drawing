@@ -260,6 +260,7 @@ export const Canvas = forwardRef<HTMLDivElement, CanvasProps>(
       <div
         ref={containerRef}
         className="relative w-full h-full overflow-auto scrollbar-hidden"
+        tabIndex={-1}
         style={{ cursor: cursorStyle }}
         onScroll={handleScroll}
         onWheel={handleWheel}
