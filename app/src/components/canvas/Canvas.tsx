@@ -1,816 +1,284 @@
 /**
- * Canvas 组件 - 基于 Overflow Scroll 架构（seats.io 风格）
+ * Canvas 组件 - 极简版本
  *
- * 架构:
- * <div class="canvas-container" style="overflow: scroll">  <!-- 滚动容器 -->
- *   <svg class="canvas-content" style="width: 50000px; height: 50000px; transform: scale(...)">
- *     <g id="background-layer"></g>
- *     <g id="viewport-layer">  <!-- 不再做 transform，直接用 world 坐标 -->
- *       <g id="section-layer"></g>
- *       <g id="seat-layer"></g>
- *       <g id="overlay-layer"></g>
- *     </g>
- *   </svg>
- * </div>
- *
- * 核心原则:
- * - 外层容器 overflow: scroll，平移通过 scrollLeft/scrollTop 实现
- * - SVG 固定大尺寸，使用 CSS transform scale 进行缩放
- * - seat/section 不使用 transform，直接用 world 坐标
- * - 纯渲染引擎，单向数据流
+ * 仅保留功能：
+ * - SVG 背景图展示
+ * - Space+拖拽平移
+ * - Ctrl+滚轮缩放
  */
 
 import React, {
   useRef,
-  useEffect,
   useState,
   useCallback,
-  useImperativeHandle,
+  useEffect,
   forwardRef,
-  useMemo,
+  useImperativeHandle,
 } from 'react';
-import type {
-  Point,
-  Section,
-  ViewportState,
-  ViewConfig,
-  VenueMap,
-  EditorMode,
-  SeatTool,
-  Category,
-  SectionCanvas,
-} from '@/types';
 import { CANVAS_CONFIG } from '@/types';
-import { SceneGraph } from '@/scene';
-import { SVGRenderer } from '@/render/SVGRenderer';
-import { ToolManager, ViewTool, SelectTool, DrawSectionTool, DrawSeatTool, MoveTool } from '@/tools';
-import type { ToolContext } from '@/tools/types';
 
+/** Canvas 组件属性 */
 export interface CanvasProps {
-  venueMap: VenueMap;
-  width: number;
-  height: number;
-  mode: EditorMode;
-  seatTool: SeatTool;
-  viewport: ViewportState;
-  drawingPoints: Point[];
-  viewConfig: ViewConfig;
-  selectedSectionId: string | null;
-  selectedSeatIds: string[];
-  sectionCanvas?: SectionCanvas | null;
-  seatRadius: number;
-  seatSpacing: number;
-  categories?: Category[];
-  // Overflow scroll 架构支持
-  contentTransform?: { transform: string; transformOrigin: string };
-  contentSize?: { width: number; height: number };
-
-  onAddSectionPoint: (point: Point) => void;
-  onRemoveLastSectionPoint: () => void;
-  onCompleteSection: () => void;
-  onCancelDrawing: () => void;
-  onEnterSection: (sectionId: string) => void;
-  onSetSelectedSectionId: (sectionId: string | null) => void;
-  onAddSeat: (sectionId: string, point: Point) => void;
-  onAddSeatsInRow: (sectionId: string, start: Point, end: Point, spacing?: number) => void;
-  onAddSeatsAlongLine?: (sectionId: string, points: Point[]) => void;
-  onSelectSeat: (seatId: string, multi?: boolean) => void;
-  onSelectSeatsInArea: (sectionId: string, start: Point, end: Point) => void;
-  onMoveSeats: (sectionId: string, seatIds: string[], delta: Point) => void;
-  onNudgeSeats: (sectionId: string, seatIds: string[], direction: 'up' | 'down' | 'left' | 'right') => void;
-  onDeleteSeat: (sectionId: string, seatId: string) => void;
-  onDeleteSection?: (sectionId: string) => void;
-  onPan: (deltaX: number, deltaY: number) => void;
-  onZoom: (zoom: number, centerX: number, centerY: number) => void;
-  onSetMode: (mode: EditorMode) => void;
-  onSetPan?: (pan: { x: number; y: number }) => void;
-  onExecuteCommand?: (command: import('@/commands').Command) => void;
+  /** 缩放比例 */
+  scale: number;
+  /** 水平滚动位置 */
+  offsetX: number;
+  /** 垂直滚动位置 */
+  offsetY: number;
+  /** 空格键是否按下 */
+  isSpacePressed: boolean;
+  /** 当前激活的工具 */
+  activeTool: string;
+  /** 缩放变化回调 */
+  onScaleChange: (scale: number, centerX: number, centerY: number) => void;
+  /** 偏移变化回调 */
+  onOffsetChange: (x: number, y: number) => void;
+  /** 子元素 - SVG 渲染内容 */
+  children?: React.ReactNode;
 }
 
+/**
+ * 极简 Canvas 组件
+ */
 export const Canvas = forwardRef<HTMLDivElement, CanvasProps>(
-  (
-    {
-      venueMap,
-      mode,
-      seatTool,
-      viewport,
-      drawingPoints,
-      viewConfig,
-      selectedSectionId,
-      selectedSeatIds,
-      seatRadius,
-      onAddSectionPoint,
-      onRemoveLastSectionPoint,
-      onCompleteSection,
-      onCancelDrawing,
-      onEnterSection,
-      onSetSelectedSectionId,
-      onAddSeat,
-      onAddSeatsInRow,
-      onAddSeatsAlongLine,
-      onSelectSeat,
-      onSelectSeatsInArea,
-      onNudgeSeats,
-      onDeleteSeat,
-      onDeleteSection,
-      onPan,
-      onSetMode,
-      onSetPan,
-      onExecuteCommand,
-      seatSpacing,
-      categories,
-      sectionCanvas,
-      contentTransform = { transform: 'scale(1)', transformOrigin: 'center center' },
-      contentSize = { width: CANVAS_CONFIG.WORLD_SIZE, height: CANVAS_CONFIG.WORLD_SIZE },
-    },
-    ref
-  ) => {
+  ({ scale, offsetX, offsetY, isSpacePressed, activeTool, onScaleChange, onOffsetChange, children }, ref) => {
     const containerRef = useRef<HTMLDivElement>(null);
-    const svgRef = useRef<SVGSVGElement>(null);
 
+    // 暴露容器引用
     useImperativeHandle(ref, () => containerRef.current!);
 
-    const rendererRef = useRef<SVGRenderer | null>(null);
-    const sceneGraphRef = useRef<SceneGraph>(new SceneGraph());
-    const toolManagerRef = useRef<ToolManager | null>(null);
+    // 拖拽状态使用 ref 避免重渲染，只保留光标样式状态
+    const isPanningRef = useRef(false);
+    const panStartRef = useRef<{ x: number; y: number } | null>(null);
+    const [cursorStyle, setCursorStyle] = useState('default');
 
-    // 交互状态
-    const [isPanning, setIsPanning] = useState(false);
-    const [isDraggingSeats, setIsDraggingSeats] = useState(false);
-    const [panStart, setPanStart] = useState<Point | null>(null);
-    const [dragStart, setDragStart] = useState<Point | null>(null);
-    const [dragCurrent, setDragCurrent] = useState<Point | null>(null);
-    const [rowStartPoint, setRowStartPoint] = useState<Point | null>(null);
-    const [mousePos, setMousePos] = useState<Point>({ x: 0, y: 0 });
-    const [seatDragStart, setSeatDragStart] = useState<Point | null>(null);
-    const [seatDragOrigin, setSeatDragOrigin] = useState<Point | null>(null);
-    const [linePoints, setLinePoints] = useState<Point[]>([]);
-    const spacePressedRef = useRef(false);
-    const [isSpacePressed, setIsSpacePressed] = useState(false);
-    const [isAltPressed, setIsAltPressed] = useState(false);
-    const [, setIsShiftPressed] = useState(false);
-    const [, setHoveredSeatId] = useState<string | null>(null);
-    const [hoveredDrawingPointIndex, setHoveredDrawingPointIndex] = useState<number | null>(null);
+    // 用于跳过大容器滚动事件的标记，避免拖拽时触发状态更新
+    const isDraggingRef = useRef(false);
 
-    // 工具 overlay 状态
-    const [toolOverlayNode, setToolOverlayNode] = useState<React.ReactNode>(null);
+    // 是否处于 hand/pan 工具模式
+    const isHandToolActive = activeTool === 'hand';
 
-    // 初始化渲染器
+    // 更新光标样式
     useEffect(() => {
-      if (!svgRef.current) return;
-
-      rendererRef.current = new SVGRenderer({
-        svg: svgRef.current,
-        options: {
-          backgroundColor: viewConfig.backgroundColor,
-          antialias: true,
-          performanceMode: 'quality',
-        },
-        backgroundImageUrl: venueMap.svgUrl ?? undefined,
-      });
-
-      return () => {
-        rendererRef.current?.destroy();
-      };
-    }, []);
-
-    // 数据变化时 - 完整渲染（低频）
-    useEffect(() => {
-      const sceneGraph = sceneGraphRef.current;
-      sceneGraph.clear();
-
-      venueMap.sections.forEach((section) => {
-        sceneGraph.addSection(section);
-      });
-
-      // 更新背景图 URL
-      if (rendererRef.current) {
-        rendererRef.current.setBackgroundImageUrl(venueMap.svgUrl ?? null);
+      if (isPanningRef.current) {
+        setCursorStyle('grabbing');
+      } else if (isSpacePressed || isHandToolActive) {
+        setCursorStyle('grab');
+      } else {
+        setCursorStyle('default');
       }
+    }, [isSpacePressed, isHandToolActive]);
 
-      // 数据变化时需要完整渲染
-      rendererRef.current?.render(sceneGraph, viewport, {
-        selectedSeatIds,
-        selectedSectionId,
-        drawingPoints,
-        mousePos,
-        mode,
-        seatTool,
-        isAltPressed,
-        dragStart,
-        dragCurrent,
-        rowStartPoint,
-        linePoints,
-        hoveredDrawingPointIndex,
-        seatRadius,
-        seatSpacing,
-        viewConfig,
-        categories,
-        sectionCanvas,
-      });
-      // eslint-disable-next-line react-hooks/exhaustive-deps
-    }, [venueMap, selectedSeatIds, drawingPoints, mode, seatTool, seatRadius, seatSpacing, viewConfig, categories, linePoints, sectionCanvas, viewport]);
+    // ===== 鼠标事件处理 =====
 
-    // Viewport 变化时 - 只更新变换（高频，平移/缩放）
-    useEffect(() => {
-      // 仅更新 viewport transform 和 overlay，不重新渲染数据
-      rendererRef.current?.updateViewport(viewport, {
-        selectedSeatIds,
-        selectedSectionId,
-        drawingPoints,
-        mousePos,
-        mode,
-        seatTool,
-        isAltPressed,
-        dragStart,
-        dragCurrent,
-        rowStartPoint,
-        linePoints,
-        hoveredDrawingPointIndex,
-        seatRadius,
-        seatSpacing,
-        viewConfig,
-        categories,
-        sectionCanvas,
-      });
-    }, [viewport, selectedSeatIds, drawingPoints, mousePos, mode, seatTool, isAltPressed, dragStart, dragCurrent, rowStartPoint, linePoints, hoveredDrawingPointIndex, seatRadius, seatSpacing, viewConfig, categories, sectionCanvas]);
-
-    // 更新视图配置
-    useEffect(() => {
-      if (!rendererRef.current) return;
-      rendererRef.current.updateOptions({
-        backgroundColor: viewConfig.backgroundColor,
-      });
-    }, [viewConfig.backgroundColor]);
-
-    // 注意：背景图片由 render 方法统一处理，不需要单独的 useEffect
-    // render 的 useEffect 依赖 venueMap（包含 svgUrl）和 sectionCanvas，
-    // 当这些值变化时会自动重新渲染背景图
-
-    // ========== 坐标转换函数（Overflow Scroll 架构）==========
-
-    const WORLD_CENTER = CANVAS_CONFIG.WORLD_SIZE / 2;
-
-    const screenToWorld = useCallback((screenX: number, screenY: number): Point => {
-      if (!containerRef.current) return { x: 0, y: 0 };
-      const rect = containerRef.current.getBoundingClientRect();
-      const { scale } = viewport;
-
-      // 计算鼠标在容器内的位置（考虑滚动）
-      const xInContainer = screenX - rect.left + containerRef.current.scrollLeft;
-      const yInContainer = screenY - rect.top + containerRef.current.scrollTop;
-
-      // 转换到世界坐标（考虑缩放）
-      return {
-        x: (xInContainer - WORLD_CENTER) / scale,
-        y: (yInContainer - WORLD_CENTER) / scale,
-      };
-    }, [viewport]);
-
-    const getMousePos = useCallback((e: React.MouseEvent | MouseEvent): Point => {
-      return screenToWorld(e.clientX, e.clientY);
-    }, [screenToWorld]);
-
-    // ========== 几何检测函数 (必须在 ToolContext 之前定义) ==========
-
-    const isPointInPolygon = useCallback((point: Point, polygon: Point[]): boolean => {
-      let inside = false;
-      for (let i = 0, j = polygon.length - 1; i < polygon.length; j = i++) {
-        const xi = polygon[i].x, yi = polygon[i].y;
-        const xj = polygon[j].x, yj = polygon[j].y;
-        const intersect = ((yi > point.y) !== (yj > point.y)) &&
-          (point.x < (xj - xi) * (point.y - yi) / (yj - yi) + xi);
-        if (intersect) inside = !inside;
-      }
-      return inside;
-    }, []);
-
-    const getSectionAtPoint = useCallback((point: Point): Section | null => {
-      for (let i = venueMap.sections.length - 1; i >= 0; i--) {
-        const section = venueMap.sections[i];
-        if (isPointInPolygon(point, section.points)) {
-          return section;
-        }
-      }
-      return null;
-    }, [venueMap.sections, isPointInPolygon]);
-
-    const getSeatAtPoint = useCallback((point: Point, section: Section | null) => {
-      if (!section) return null;
-      const hitRadius = (seatRadius + 2) / viewport.scale;
-      for (const seat of section.seats) {
-        const dist = Math.sqrt((seat.x - point.x) ** 2 + (seat.y - point.y) ** 2);
-        if (dist <= hitRadius) {
-          return { seat, section };
-        }
-      }
-      return null;
-    }, [seatRadius, viewport.scale]);
-
-    const shouldPan = useCallback((e: React.MouseEvent | MouseEvent) => {
-      return e.button === 1 || (isSpacePressed && e.button === 0);
-    }, [isSpacePressed]);
-
-    // ========== ToolContext ==========
-    const toolContext = useMemo<ToolContext>(() => ({
-      viewport,
-      setViewport: (newViewport) => {
-        onSetPan?.({ x: newViewport.offsetX, y: newViewport.offsetY });
+    /**
+     * 判断是否应触发平移
+     * - 鼠标中键拖拽
+     * - 空格键按下 + 左键拖拽
+     * - Hand 工具选中 + 左键拖拽
+     */
+    const shouldPan = useCallback(
+      (e: React.MouseEvent | MouseEvent) => {
+        return e.button === 1 || ((isSpacePressed || isHandToolActive) && e.button === 0);
       },
-      screenToWorld,
-      worldToScreen: (worldX: number, worldY: number): Point => {
-        if (!containerRef.current) {
-          return {
-            x: WORLD_CENTER + worldX * viewport.scale - viewport.offsetX,
-            y: WORLD_CENTER + worldY * viewport.scale - viewport.offsetY,
-          };
-        }
-        const rect = containerRef.current.getBoundingClientRect();
-        // 转换世界坐标到屏幕坐标
-        const xInCanvas = WORLD_CENTER + worldX * viewport.scale;
-        const yInCanvas = WORLD_CENTER + worldY * viewport.scale;
+      [isSpacePressed, isHandToolActive]
+    );
 
-        return {
-          x: xInCanvas - containerRef.current.scrollLeft + rect.left,
-          y: yInCanvas - containerRef.current.scrollTop + rect.top,
-        };
-      },
-      venueMap,
-      setVenueMap: () => {},
-      isSpacePressed: () => isSpacePressed,
-      editorState: {
-        mode,
-        selectedSectionId,
-        selectedSeatIds,
-        seatTool,
-        canvasTool: 'auto',
-        isDrawing: drawingPoints.length > 0,
-        sectionDrawMode: 'polygon',
-        drawingPoints,
-        tempLine: null,
-      } as import('@/types').EditorState,
-      setEditorState: () => {},
-      mode,
-      setMode: onSetMode,
-      seatTool,
-      setSeatTool: () => {},
-      selectedSectionId,
-      setSelectedSectionId: onSetSelectedSectionId,
-      enterSection: onEnterSection,
-      selectedSeatIds: new Set(selectedSeatIds),
-      selectSeat: onSelectSeat,
-      selectSeats: (ids: string[]) => {
-        ids.forEach(id => onSelectSeat(id, true));
-      },
-      clearSeatSelection: () => onSelectSeat('', false),
-      isSeatSelected: (id: string) => selectedSeatIds.includes(id),
-      startSectionDrawing: () => {},
-      addSectionPoint: onAddSectionPoint,
-      removeLastSectionPoint: onRemoveLastSectionPoint,
-      completeSectionDrawing: () => {
-        onCompleteSection();
-        return null;
-      },
-      cancelSectionDrawing: onCancelDrawing,
-      updateRectanglePreview: () => {},
-      getRectanglePoints: () => [],
-      sectionPoints: drawingPoints,
-      addSeat: onAddSeat,
-      addSeatsInRow: onAddSeatsInRow,
-      addSeatsAlongLine: (sectionId: string, points: Point[]) => {
-        if (onAddSeatsAlongLine) {
-          onAddSeatsAlongLine(sectionId, points);
+    /**
+     * 鼠标按下
+     */
+    const handleMouseDown = useCallback(
+      (e: React.MouseEvent) => {
+        e.preventDefault();
+
+        if (shouldPan(e)) {
+          isPanningRef.current = true;
+          isDraggingRef.current = true;
+          panStartRef.current = { x: e.clientX, y: e.clientY };
+          setCursorStyle('grabbing');
         }
       },
-      execute: (command) => {
-        onExecuteCommand?.(command);
+      [shouldPan]
+    );
+
+    /**
+     * 鼠标移动 - 使用 ref 直接操作 DOM，避免 React 重渲染
+     */
+    const handleMouseMove = useCallback(
+      (e: React.MouseEvent) => {
+        if (isPanningRef.current && panStartRef.current && containerRef.current) {
+          const dx = e.clientX - panStartRef.current.x;
+          const dy = e.clientY - panStartRef.current.y;
+
+          // 直接操作 DOM，不触发 React 更新
+          containerRef.current.scrollLeft -= dx;
+          containerRef.current.scrollTop -= dy;
+
+          panStartRef.current = { x: e.clientX, y: e.clientY };
+        }
       },
-      setToolOverlay: (overlay: React.ReactNode) => {
-        setToolOverlayNode(overlay);
-      },
-      setCursor: () => {},
-      getSectionAtPoint,
-      getSeatAtPoint: (point: Point, section: Section | null) => {
-        if (!section) return null;
-        return getSeatAtPoint(point, section);
-      },
-      viewConfig,
-      containerRef: containerRef as React.RefObject<HTMLElement>,
-    }), [
-      viewport, screenToWorld, venueMap, mode, selectedSectionId, selectedSeatIds,
-      seatTool, drawingPoints, onSetMode, onEnterSection, onSetSelectedSectionId, onSelectSeat, onAddSectionPoint,
-      onRemoveLastSectionPoint, onCancelDrawing, getSectionAtPoint, getSeatAtPoint, viewConfig, onSetPan, onExecuteCommand,
-      onAddSeat, onAddSeatsInRow, onAddSeatsAlongLine, isSpacePressed, onCompleteSection
-    ]);
+      []
+    );
 
-
-    // 初始化 ToolManager
-    useEffect(() => {
-      toolManagerRef.current = new ToolManager(toolContext);
-
-      // 注册所有工具
-      toolManagerRef.current.registerTool(new ViewTool(toolContext), 'navigation');
-      toolManagerRef.current.registerTool(new SelectTool(toolContext), 'edit', 'v');
-      toolManagerRef.current.registerTool(new DrawSectionTool(toolContext), 'draw');
-      toolManagerRef.current.registerTool(new DrawSeatTool(toolContext), 'draw');
-      toolManagerRef.current.registerTool(new MoveTool(toolContext), 'edit');
-
-      return () => {
-        toolManagerRef.current?.destroy();
-      };
-    }, []);
-
-    // 更新 ToolContext
-    useEffect(() => {
-      if (toolManagerRef.current) {
-        toolManagerRef.current.setContext(toolContext);
-      }
-    }, [toolContext]);
-
-    // 根据 mode 切换工具
-    useEffect(() => {
-      if (!toolManagerRef.current) return;
-
-      // 根据当前 mode 设置对应的工具
-      switch (mode) {
-        case 'view':
-          toolManagerRef.current.setTool('view');
-          break;
-        case 'draw-section':
-          toolManagerRef.current.setTool('draw-section');
-          break;
-        case 'draw-seat':
-          // 在 draw-seat 模式下，根据 seatTool 选择具体工具
-          switch (seatTool) {
-            case 'select':
-              toolManagerRef.current.setTool('select');
-              break;
-            case 'single':
-            case 'row':
-              toolManagerRef.current.setTool('draw-seat');
-              break;
-            default:
-              toolManagerRef.current.setTool('view');
-          }
-          break;
-        default:
-          toolManagerRef.current.setTool('view');
-      }
-    }, [mode, seatTool]);
-
-    // ========== 鼠标事件处理 (分发给 ToolManager) ==========
-
-    const handleMouseDown = useCallback((e: React.MouseEvent) => {
-      e.preventDefault();
-
-      const pos = getMousePos(e);
-
-      // 设置平移状态（用于光标样式）
-      if (shouldPan(e)) {
-        setIsPanning(true);
-        setPanStart({ x: e.clientX, y: e.clientY });
-      }
-
-      if (e.button === 2) {
-        if (mode === 'draw-section' && drawingPoints.length > 0) {
-          onRemoveLastSectionPoint();
-        }
-        return;
-      }
-
-      // 处理 row 工具：设置起始点
-      if (mode === 'draw-seat' && seatTool === 'row' && selectedSectionId) {
-        setRowStartPoint(pos);
-        return;
-      }
-
-      // 处理 line 工具：添加到点数组
-      if (mode === 'draw-seat' && seatTool === 'line' && selectedSectionId) {
-        setLinePoints(prev => [...prev, pos]);
-        return;
-      }
-
-      // 处理 select 工具的框选：设置起始点
-      if (mode === 'draw-seat' && seatTool === 'select' && selectedSectionId && e.button === 0) {
-        setDragStart(pos);
-        setDragCurrent(pos);
-        return;
-      }
-
-      // 使用 ToolManager 处理事件（包括所有按键状态）
-      if (containerRef.current) {
-        toolManagerRef.current?.handleMouseDown(e.nativeEvent, containerRef.current);
-      }
-    }, [mode, drawingPoints.length, shouldPan, onRemoveLastSectionPoint, getMousePos, seatTool, selectedSectionId]);
-
-    const handleMouseMove = useCallback((e: React.MouseEvent) => {
-      const pos = getMousePos(e);
-      setMousePos(pos);
-
-      if (mode === 'draw-section' && drawingPoints.length > 0) {
-        const HOVER_RADIUS = 15;
-        let hoveredIndex: number | null = null;
-        for (let i = 0; i < drawingPoints.length; i++) {
-          const point = drawingPoints[i];
-          const dist = Math.sqrt((pos.x - point.x) ** 2 + (pos.y - point.y) ** 2);
-          if (dist <= HOVER_RADIUS) {
-            hoveredIndex = i;
-            break;
-          }
-        }
-        setHoveredDrawingPointIndex(hoveredIndex);
-      } else if (mode === 'draw-seat' && selectedSectionId) {
-        const section = venueMap.sections.find(s => s.id === selectedSectionId);
-        if (section) {
-          const seatInfo = getSeatAtPoint(pos, section);
-          setHoveredSeatId(seatInfo?.seat.id || null);
+    /**
+     * 鼠标释放
+     */
+    const handleMouseUp = useCallback(() => {
+      if (isPanningRef.current) {
+        isPanningRef.current = false;
+        isDraggingRef.current = false;
+        panStartRef.current = null;
+        // 恢复光标样式
+        if (isSpacePressed || isHandToolActive) {
+          setCursorStyle('grab');
+        } else {
+          setCursorStyle('default');
         }
       }
+    }, [isSpacePressed, isHandToolActive]);
 
-      if (isPanning && panStart) {
-        const dx = e.clientX - panStart.x;
-        const dy = e.clientY - panStart.y;
-        onPan(dx, dy);
-        setPanStart({ x: e.clientX, y: e.clientY });
-      }
+    // 滚轮移动优化：使用 ref 标记滚轮操作中，跳过状态同步
+    const isWheelingRef = useRef(false);
+    const wheelTimeoutRef = useRef<number | null>(null);
 
-      // 处理 select 工具的框选：更新当前点
-      if (seatTool === 'select' && dragStart) {
-        setDragCurrent(pos);
-      }
-
-      // 分发给 ToolManager
-      if (containerRef.current) {
-        toolManagerRef.current?.handleMouseMove(e.nativeEvent, containerRef.current);
-      }
-    }, [isPanning, panStart, mode, selectedSectionId, venueMap.sections, drawingPoints, getMousePos, onPan, getSeatAtPoint, seatTool, dragStart]);
-
-    const handleMouseUp = useCallback((e: React.MouseEvent) => {
-      // 使用 ToolManager 处理事件（优先让工具处理）
-      if (containerRef.current) {
-        toolManagerRef.current?.handleMouseUp(e.nativeEvent, containerRef.current);
-      }
-
-      // 重置平移状态
-      if (isPanning) {
-        setIsPanning(false);
-        setPanStart(null);
-      }
-
-      if (isDraggingSeats) {
-        setIsDraggingSeats(false);
-        setSeatDragStart(null);
-        setSeatDragOrigin(null);
-      }
-
-      if (seatDragStart && seatDragOrigin) {
-        setSeatDragStart(null);
-        setSeatDragOrigin(null);
-      }
-
-      const pos = getMousePos(e);
-
-      if (seatTool === 'select' && dragStart && dragCurrent && selectedSectionId) {
-        const boxWidth = Math.abs(dragCurrent.x - dragStart.x);
-        const boxHeight = Math.abs(dragCurrent.y - dragStart.y);
-        if (boxWidth > 5 || boxHeight > 5) {
-          onSelectSeatsInArea(selectedSectionId, dragStart, dragCurrent);
-        }
-        setDragStart(null);
-        setDragCurrent(null);
-      } else if (mode === 'draw-seat' && selectedSectionId && seatTool === 'row' && rowStartPoint) {
-        const distance = Math.sqrt(Math.pow(pos.x - rowStartPoint.x, 2) + Math.pow(pos.y - rowStartPoint.y, 2));
-        if (distance > seatSpacing / 2) {
-          onAddSeatsInRow(selectedSectionId, rowStartPoint, pos, seatSpacing);
-        }
-        setRowStartPoint(null);
-      } else if (mode === 'draw-seat' && selectedSectionId && seatTool === 'line' && linePoints.length >= 2) {
-        // Line 工具：双击或右键完成，这里不需要处理，由双击事件处理
-      }
-    }, [isPanning, isDraggingSeats, seatDragStart, seatDragOrigin, seatTool, dragStart, dragCurrent, mode, selectedSectionId, rowStartPoint, seatSpacing, getMousePos, onSelectSeatsInArea, onAddSeatsInRow, linePoints]);
-
-    const handleDoubleClick = useCallback((e: React.MouseEvent) => {
-      const pos = getMousePos(e);
-
-      if (mode === 'draw-section' && drawingPoints.length >= 3) {
-        onCompleteSection();
-      } else if (mode === 'view') {
-        const section = getSectionAtPoint(pos);
-        if (section) {
-          onEnterSection(section.id);
-        }
-      } else if (mode === 'draw-seat' && seatTool === 'line' && selectedSectionId && linePoints.length >= 2) {
-        // Line 工具：双击完成绘制
-        if (onAddSeatsAlongLine) {
-          onAddSeatsAlongLine(selectedSectionId, linePoints);
-        }
-        setLinePoints([]);
-        return;
-      }
-
-      // 分发给 ToolManager
-      if (containerRef.current) {
-        toolManagerRef.current?.handleDoubleClick?.(e.nativeEvent, containerRef.current);
-      }
-    }, [mode, drawingPoints.length, getMousePos, onCompleteSection, onEnterSection, getSectionAtPoint, seatTool, selectedSectionId, linePoints, onAddSeatsAlongLine]);
-
-
-    // ========== 键盘事件处理 ==========
-
-    useEffect(() => {
-      const handleKeyDown = (e: KeyboardEvent) => {
-        if (e.code === 'Space' && !e.repeat && !(e.target instanceof HTMLInputElement)) {
+    /**
+     * 滚轮缩放 (Ctrl+滚轮) 和平移 (滚轮/Shift+滚轮)
+     * - 阻止默认行为和冒泡，防止页面滚动
+     * - 使用较小的缩放步长 (3%) 实现更精细的控制
+     * - 普通滚轮直接操作 DOM 移动画布，避免 React 重渲染
+     */
+    const handleWheel = useCallback(
+      (e: React.WheelEvent) => {
+        if (e.ctrlKey || e.metaKey) {
+          // 阻止默认滚动行为和事件冒泡
           e.preventDefault();
-          spacePressedRef.current = true;
-          setIsSpacePressed(true);
-        }
-        if (e.code === 'AltLeft' || e.code === 'AltRight') {
-          setIsAltPressed(true);
-        }
-        if (e.code === 'ShiftLeft' || e.code === 'ShiftRight') {
-          setIsShiftPressed(true);
-        }
+          e.stopPropagation();
 
-        if (selectedSectionId && selectedSeatIds.length > 0) {
-          switch (e.key) {
-            case 'ArrowUp':
-              e.preventDefault();
-              onNudgeSeats(selectedSectionId, selectedSeatIds, 'up');
-              break;
-            case 'ArrowDown':
-              e.preventDefault();
-              onNudgeSeats(selectedSectionId, selectedSeatIds, 'down');
-              break;
-            case 'ArrowLeft':
-              e.preventDefault();
-              onNudgeSeats(selectedSectionId, selectedSeatIds, 'left');
-              break;
-            case 'ArrowRight':
-              e.preventDefault();
-              onNudgeSeats(selectedSectionId, selectedSeatIds, 'right');
-              break;
+          // 根据滚轮方向计算缩放因子 (3% 步长)
+          const zoomStep = 0.03;
+          const zoomFactor = e.deltaY > 0 ? 1 - zoomStep : 1 + zoomStep;
+          const newScale = scale * zoomFactor;
+
+          onScaleChange(newScale, e.clientX, e.clientY);
+        } else {
+          // 普通滚轮：直接操作 DOM 移动画布，避免触发 React 状态更新循环
+          if (!containerRef.current) return;
+
+          e.preventDefault();
+
+          // 标记滚轮操作中
+          isWheelingRef.current = true;
+
+          // 根据滚轮方向计算滚动偏移
+          // deltaY: 垂直滚动，deltaX: 水平滚动（或 Shift+滚轮）
+          const scrollSpeed = 1;
+          containerRef.current.scrollLeft += e.deltaX * scrollSpeed;
+          containerRef.current.scrollTop += e.deltaY * scrollSpeed;
+
+          // 清除之前的 timeout
+          if (wheelTimeoutRef.current) {
+            window.clearTimeout(wheelTimeoutRef.current);
           }
-        }
 
-        if ((e.ctrlKey || e.metaKey) && e.key === 'z' && !e.shiftKey) {
-          if (mode === 'draw-section' && drawingPoints.length > 0) {
-            e.preventDefault();
-            onRemoveLastSectionPoint();
-            return;
-          }
-        }
-
-        if (e.key === 'Escape') {
-          if (mode === 'draw-section') {
-            onCancelDrawing();
-          } else if (mode === 'draw-seat' && seatTool === 'line' && linePoints.length > 0) {
-            setLinePoints([]);
-          }
-        }
-
-        if (e.key === 'Enter') {
-          if (mode === 'draw-section' && drawingPoints.length >= 3) {
-            onCompleteSection();
-          } else if (mode === 'draw-seat' && seatTool === 'line' && selectedSectionId && linePoints.length >= 2) {
-            if (onAddSeatsAlongLine) {
-              onAddSeatsAlongLine(selectedSectionId, linePoints);
+          // 滚轮结束后延迟同步状态（用于方向控制环等 UI 同步）
+          wheelTimeoutRef.current = window.setTimeout(() => {
+            isWheelingRef.current = false;
+            // 最后一次同步状态
+            if (containerRef.current) {
+              onOffsetChange(containerRef.current.scrollLeft, containerRef.current.scrollTop);
             }
-            setLinePoints([]);
-          }
+          }, 150);
         }
+      },
+      [scale, onScaleChange, onOffsetChange]
+    );
 
-        if (e.key === 'Delete' || e.key === 'Backspace') {
-          if (selectedSeatIds.length > 0 && selectedSectionId) {
-            selectedSeatIds.forEach(seatId => {
-              onDeleteSeat(selectedSectionId, seatId);
-            });
-          } else if (mode === 'view' && selectedSectionId && onDeleteSection) {
-            onDeleteSection(selectedSectionId);
-          }
-        }
+    // ===== 滚动同步 =====
 
-        // 分发给 ToolManager
-        toolManagerRef.current?.handleKeyDown?.(e);
-      };
-
-      const handleKeyUp = (e: KeyboardEvent) => {
-        // 分发给 ToolManager
-        toolManagerRef.current?.handleKeyUp?.(e);
-        if (e.code === 'Space') {
-          spacePressedRef.current = false;
-          setIsSpacePressed(false);
-        }
-        if (e.code === 'AltLeft' || e.code === 'AltRight') {
-          setIsAltPressed(false);
-        }
-      };
-
-      const handleBlur = () => {
-        spacePressedRef.current = false;
-        setIsSpacePressed(false);
-        // 分发给 ToolManager
-        toolManagerRef.current?.handleBlur?.();
-      };
-
-      window.addEventListener('keydown', handleKeyDown, true);
-      window.addEventListener('keyup', handleKeyUp, true);
-      window.addEventListener('blur', handleBlur);
-
-      return () => {
-        window.removeEventListener('keydown', handleKeyDown, true);
-        window.removeEventListener('keyup', handleKeyUp, true);
-        window.removeEventListener('blur', handleBlur);
-      };
-    }, [mode, drawingPoints.length, selectedSeatIds, selectedSectionId, onCancelDrawing, onRemoveLastSectionPoint, onCompleteSection, onDeleteSeat, onDeleteSection, onNudgeSeats, seatTool, linePoints, onAddSeatsAlongLine]);
-
-    const getCursorStyle = useCallback(() => {
-      if (isPanning) return 'grabbing';
-      if (isDraggingSeats) return 'grabbing';
-      if (seatDragStart) return 'grab';
-      if (isSpacePressed) return 'grab';
-      if (isAltPressed && mode === 'draw-seat' && seatTool === 'select') return 'crosshair';
-      if (mode === 'draw-section') return 'crosshair';
-      if (mode === 'draw-seat') {
-        if (seatTool === 'select') return 'default';
-        if (seatTool === 'single' || seatTool === 'row') return 'crosshair';
-      }
-      return 'default';
-    }, [isPanning, isDraggingSeats, seatDragStart, isSpacePressed, isAltPressed, mode, seatTool]);
-
-    // 同步滚动位置到 viewport 状态
+    /**
+     * 滚动位置变化时同步到状态
+     * 拖拽或滚轮期间跳过，避免与直接 DOM 操作冲突
+     */
     const handleScroll = useCallback(() => {
-      if (!containerRef.current || !onSetPan) return;
-      onSetPan({
-        x: containerRef.current.scrollLeft,
-        y: containerRef.current.scrollTop,
-      });
-    }, [onSetPan]);
+      if (!containerRef.current) return;
+      // if (isDraggingRef.current || isWheelingRef.current) return;
+      onOffsetChange(containerRef.current.scrollLeft, containerRef.current.scrollTop);
+    }, [onOffsetChange]);
 
-    // 同步 viewport 状态到滚动位置（当 viewport.offsetX/Y 变化时）
+    /**
+     * 状态变化时同步滚动位置
+     */
     useEffect(() => {
       if (!containerRef.current) return;
-      if (containerRef.current.scrollLeft !== viewport.offsetX) {
-        containerRef.current.scrollLeft = viewport.offsetX;
+      if (containerRef.current.scrollLeft !== offsetX) {
+        containerRef.current.scrollLeft = offsetX;
       }
-      if (containerRef.current.scrollTop !== viewport.offsetY) {
-        containerRef.current.scrollTop = viewport.offsetY;
+      if (containerRef.current.scrollTop !== offsetY) {
+        containerRef.current.scrollTop = offsetY;
       }
-    }, [viewport.offsetX, viewport.offsetY]);
+    }, [offsetX, offsetY]);
+
+    /**
+     * 原生滚轮事件监听 - 确保 preventDefault 生效
+     * 需要 passive: false 才能阻止默认滚动行为
+     */
+    useEffect(() => {
+      const container = containerRef.current;
+      if (!container) return;
+
+      const handleNativeWheel = (e: WheelEvent) => {
+        // 处理所有滚轮事件：Ctrl+滚轮缩放，普通滚轮平移
+        if (e.ctrlKey || e.metaKey) {
+          e.preventDefault();
+        } else {
+          // 普通滚轮也由 React 事件处理，这里只阻止默认行为
+          e.preventDefault();
+        }
+      };
+
+      container.addEventListener('wheel', handleNativeWheel, { passive: false });
+
+      return () => {
+        container.removeEventListener('wheel', handleNativeWheel);
+      };
+    }, []);
+
+    /**
+     * 清理滚轮 timeout
+     */
+    useEffect(() => {
+      return () => {
+        if (wheelTimeoutRef.current) {
+          window.clearTimeout(wheelTimeoutRef.current);
+        }
+      };
+    }, []);
+
+    // ===== 渲染 =====
 
     return (
       <div
         ref={containerRef}
-        className="relative w-full h-full overflow-auto"
-        style={{
-          cursor: getCursorStyle(),
-        }}
-        onContextMenu={(e) => {
-          if (mode === 'draw-section') {
-            e.preventDefault();
-          }
-        }}
+        className="relative w-full h-full overflow-auto scrollbar-hidden"
+        style={{ cursor: cursorStyle }}
         onScroll={handleScroll}
+        onWheel={handleWheel}
+        onMouseDown={handleMouseDown}
+        onMouseMove={handleMouseMove}
+        onMouseUp={handleMouseUp}
+        onMouseLeave={handleMouseUp}
       >
-        {/* 主 SVG 画布 - Overflow Scroll 架构 */}
-        <svg
-          ref={svgRef}
+        {/* SVG 画布容器 - 与 seats.io 一致：width/height 固定，缩放由 SVG 内部 transform 处理 */}
+        <div
           style={{
-            backgroundColor: viewConfig.backgroundColor,
-            ...contentTransform,
-            willChange: 'transform',
-            display: 'block',
+            width: CANVAS_CONFIG.WORLD_SIZE,
+            height: CANVAS_CONFIG.WORLD_SIZE,
+            position: 'relative',
           }}
-          width={contentSize.width}
-          height={contentSize.height}
-          onMouseDown={handleMouseDown}
-          onMouseMove={handleMouseMove}
-          onMouseUp={handleMouseUp}
-          onDoubleClick={handleDoubleClick}
         >
-          {/* SVGRenderer 会在这里创建分层结构 */}
-
-          {/* 工具 Overlay - 直接使用 world 坐标渲染 */}
-          {toolOverlayNode && (
-            <g
-              className="tool-overlay"
-              style={{ pointerEvents: 'none' }}
-            >
-              {toolOverlayNode}
-            </g>
-          )}
-        </svg>
-
-        {/* 工具提示 */}
-        {mode === 'view' && (
-          <div className="absolute top-4 right-4 bg-white/90 backdrop-blur px-3 py-2 rounded-lg shadow text-xs text-slate-500">
-            Double-click section to edit
-          </div>
-        )}
-        {mode === 'draw-seat' && seatTool === 'select' && (
-          <div className="absolute top-4 right-4 bg-white/90 backdrop-blur px-3 py-2 rounded-lg shadow text-xs text-slate-500">
-            Alt + Drag for lasso select
-          </div>
-        )}
+          {/* SVG 渲染内容 - 绝对定位覆盖整个容器 */}
+          {children}
+        </div>
       </div>
     );
   }

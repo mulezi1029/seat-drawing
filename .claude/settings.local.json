@@ -17,7 +17,13 @@
       "Bash(npx playwright-core@latest screenshot:*)",
       "Bash(npm run typecheck)",
       "Bash(npm run dev)",
-      "Bash(/Users/cy/Downloads/座位绘制功能/app/node_modules/.bin/tsc:*)"
+      "Bash(/Users/cy/Downloads/座位绘制功能/app/node_modules/.bin/tsc:*)",
+      "Bash(npm install:*)",
+      "Bash(/bin/zsh -c \"cd /Users/cy/Downloads/座位绘制功能/app && npm run build\")",
+      "Bash(mkdir:*)",
+      "Bash(pnpm run build:*)",
+      "Bash(bash:*)",
+      "Bash(PATH=/usr/local/bin:/usr/bin:/bin:/opt/homebrew/bin)"
     ]
   }
 }
