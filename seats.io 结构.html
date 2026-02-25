@@ -1,0 +1,649 @@
+<html>
+
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, user-scalable=no">
+
+  <link rel="stylesheet" href="flaticon/flaticon.css">
+
+  <script src="lib/jquery.1.11.0.min.js"></script>
+  <script src="lib/bootstrap.min.js"></script>
+  <script src="lib/fontfaceobserver.2.0.9.standalone.js"></script>
+
+  <link href="https://fonts.googleapis.com/css?family=Roboto:100,300,400,500,700" rel="stylesheet">
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600&amp;display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="font-seatsdesigner.css">
+  <link rel="stylesheet" href="bootstrap.css">
+  <link rel="stylesheet" href="chartDesigner.css">
+  <link rel="stylesheet" href="gui.css">
+  <link rel="stylesheet" href="DesignerApp.css">
+
+  <script src="../../../../chart.js"></script>
+  <script>
+    let seatsioNoConflict = seatsio;
+  </script>
+
+  <script src="lib/less.1.7.0.min.js"></script>
+  <script type="module">
+    import { ChartScannerComponent, Point, Polygon } from '../chart-scanner/main.js';
+    window.ChartScannerComponent = ChartScannerComponent;
+    window.ChartScannerPoint = Point;
+    window.ChartScannerPolygon = Polygon;
+  </script>
+  <script src="chartDesigner.js"></script>
+  <script src="chartDesignerIframe.js"></script>
+  <style>
+    @keyframes progress-bar-parallax {
+      from {
+        background-position: -160px 0%;
+      }
+
+      to {
+        background-position: 0% 0%;
+      }
+    }
+  </style>
+  <style>
+    @keyframes progress-bar-parallax {
+      from {
+        background-position: -160px 0%;
+      }
+
+      to {
+        background-position: 0% 0%;
+      }
+    }
+  </style>
+</head>
+
+<body style="margin: 0px; padding: 0px; overflow: hidden;">
+
+  <script src="errorHandling.js"></script>
+
+  <div id="chart"></div>
+
+  <div id="designerApp">
+    <div class="DesignerApp null false agent-chrome canvas-light" style="">
+      <div class="panels-container scale-long-enter-done">
+        <div class="panel-row">
+          <div id="panel-top" class="Panel snap-top">
+            <div class="group main">
+              <div class="group document"><button class="Button preset-icon color-undefined undefined spring-enter-done"
+                  title="Save &amp; exit" style="font-size: 20px;">
+                  <div class="wrapper">
+                    <div class="icon icon-close"></div>
+                  </div>
+                </button>
+                <div class="DocumentState">
+                  <div class="EditableLabel right-shift-enter-done">
+                    <div class="label">Untitled chart</div>
+                  </div>
+                  <div class="status saved false false false">
+                    <div class="status-icon">
+                      <div class="icon-saving"></div>
+                      <div class="icon-saved"></div>
+                    </div>
+                    <div class="status-caption">Saved</div>
+                    <div class="ToolbarTooltip">
+                      <h2>Last saved 6 minutes ago</h2>
+                      <p>The chart is saved</p>
+                    </div>
+                  </div>
+                </div><button
+                  class="Button preset-toolbar-icon color-undefined false undefined undefined undefined undefined undefined"
+                  title="Preview">
+                  <div class="icon icon-view"></div>
+                </button><button
+                  class="Button preset-toolbar-icon color-undefined false undefined undefined undefined undefined undefined"
+                  title="Toggle color scheme">
+                  <div class="icon icon-day"></div>
+                </button>
+              </div>
+              <div class="group designer"><button
+                  class="Button preset-toolbar-icon color-undefined undefined undefined undefined undefined undefined undefined"
+                  title="Undo (⌘Z)">
+                  <div class="icon icon-undo"></div>
+                </button><button
+                  class="Button preset-toolbar-icon color-undefined undefined undefined undefined undefined undefined undefined"
+                  title="Redo (⌘⇧Z)" disabled="">
+                  <div class="icon icon-redo"></div>
+                </button>
+                <div class="separator"></div><button
+                  class="Button preset-toolbar-icon color-undefined false undefined undefined undefined undefined undefined"
+                  title="Snap to grid">
+                  <div class="icon icon-snapping"></div>
+                </button><button
+                  class="Button preset-toolbar-icon color-undefined selected undefined undefined undefined undefined undefined"
+                  title="Show section contents">
+                  <div class="icon icon-show-section-contents"></div>
+                </button><button
+                  class="Button preset-toolbar-icon color-undefined false undefined undefined undefined undefined undefined"
+                  title="Always show labels">
+                  <div class="icon icon-label"></div>
+                </button><button
+                  class="Button preset-toolbar-icon color-undefined false undefined undefined undefined undefined undefined"
+                  title="View from seats">
+                  <div class="icon icon-view-from-seats"></div>
+                </button>
+              </div>
+            </div>
+            <div class="separator"></div>
+            <div class="group context-actions">
+              <div class="ContextActions"><button
+                  class="Button preset-toolbar-icon-dropdown color-undefined undefined false undefined undefined undefined undefined"
+                  disabled="" title="Align center">
+                  <div class="icon icon-align-objects-horizontal-center"></div>
+                  <div class="dropdown icon-arrow-medium-down"></div>
+                </button>
+                <div class="separator"></div><button
+                  class="Button preset-toolbar-icon color-undefined undefined false undefined undefined undefined undefined"
+                  title="Flip horizontally">
+                  <div class="icon icon-flip-horizontal"></div>
+                </button><button
+                  class="Button preset-toolbar-icon color-undefined undefined false undefined undefined undefined undefined"
+                  title="Flip vertically">
+                  <div class="icon icon-flip-vertical"></div>
+                </button>
+                <div class="separator"></div><button
+                  class="Button preset-toolbar-icon color-undefined undefined false undefined undefined undefined undefined"
+                  title="Duplicate (⌘J)">
+                  <div class="icon icon-duplicate"></div>
+                </button><button
+                  class="Button preset-toolbar-icon color-undefined undefined false undefined undefined undefined undefined"
+                  title="Copy (⌘C)">
+                  <div class="icon icon-copy"></div>
+                </button><button
+                  class="Button preset-toolbar-icon color-undefined undefined false undefined undefined undefined undefined"
+                  title="Paste (⌘V)">
+                  <div class="icon icon-paste"></div>
+                </button><button
+                  class="Button preset-toolbar-icon color-undefined undefined false undefined undefined undefined undefined"
+                  title="Delete">
+                  <div class="icon icon-delete"></div>
+                </button>
+              </div>
+            </div>
+            <div class="separator"></div>
+            <div class="group"><button
+                class="Button preset-toolbar-icon-dropdown-only color-undefined undefined false undefined undefined undefined undefined"
+                title="help">
+                <div class="icon icon-help"></div>
+                <div class="dropdown icon-arrow-medium-down"></div>
+              </button></div>
+          </div>
+        </div>
+        <div class="panel-row grow">
+          <div id="panel-left" class="Panel snap-left">
+            <div class="ToolPicker false show-hover-tooltip">
+              <div class="toolGroup selected false visible false"><button
+                  class="Button preset-tool color-undefined selected undefined undefined undefined false undefined"
+                  title="">
+                  <div class="icon icon-select-cursor"></div>
+                  <div class="tooltip">Select tool <div class="key-hint">v</div>
+                  </div>
+                </button></div>
+              <div class="toolGroup false false hidden false"><button
+                  class="Button preset-tool color-undefined false undefined undefined undefined false undefined"
+                  title="">
+                  <div class="icon icon-select-seats"></div>
+                  <div class="tooltip">Select seats tool <div class="key-hint">x</div>
+                  </div>
+                </button></div>
+              <div class="toolGroup false false visible false"><button
+                  class="Button preset-tool color-undefined false undefined undefined undefined false undefined"
+                  title="">
+                  <div class="icon icon-select-brush"></div>
+                  <div class="tooltip">Selection brush tool <div class="key-hint">c</div>
+                  </div>
+                </button></div>
+              <div class="toolGroup false false visible false"><button
+                  class="Button preset-tool color-undefined false undefined undefined undefined false undefined"
+                  title="">
+                  <div class="icon icon-select-sameType"></div>
+                  <div class="tooltip">Select same type tool <div class="key-hint">z</div>
+                  </div>
+                </button></div>
+              <div class="toolGroup false false visible false"><button
+                  class="Button preset-tool color-undefined false undefined undefined undefined false undefined"
+                  title="">
+                  <div class="icon icon-node"></div>
+                  <div class="tooltip">Node tool <div class="key-hint">a</div>
+                  </div>
+                </button></div>
+              <div class="separator"></div>
+              <div class="toolGroup false false visible false"><button
+                  class="Button preset-tool color-undefined false undefined undefined undefined false undefined"
+                  title="">
+                  <div class="icon icon-focalpoint"></div>
+                  <div class="tooltip">Focal point tool <div class="key-hint">f</div>
+                  </div>
+                </button></div>
+              <div class="toolGroup false false hidden false"><button
+                  class="Button preset-tool color-undefined false undefined undefined undefined false undefined"
+                  title="">
+                  <div class="icon icon-row-single"></div>
+                  <div class="tooltip">Row tool <div class="key-hint">r</div>
+                  </div>
+                </button>
+                <div class="indicator icon-tool-group-indicator"></div>
+              </div>
+              <div class="toolGroup false false visible false"><button
+                  class="Button preset-tool color-undefined false undefined undefined undefined false undefined"
+                  title="">
+                  <div class="icon icon-section-rectangle"></div>
+                  <div class="tooltip">Rectangular Section tool <div class="key-hint">s</div>
+                  </div>
+                </button>
+                <div class="indicator icon-tool-group-indicator"></div>
+              </div>
+              <div class="toolGroup false false hidden false"><button
+                  class="Button preset-tool color-undefined false undefined undefined undefined false undefined"
+                  title="">
+                  <div class="icon icon-table-round"></div>
+                  <div class="tooltip">Round Table tool <div class="key-hint">e</div>
+                  </div>
+                </button>
+                <div class="indicator icon-tool-group-indicator"></div>
+              </div>
+              <div class="toolGroup false false hidden false"><button
+                  class="Button preset-tool color-undefined false undefined undefined undefined false undefined"
+                  title="">
+                  <div class="icon icon-booth"></div>
+                  <div class="tooltip">Booth tool <div class="key-hint">b</div>
+                  </div>
+                </button></div>
+              <div class="toolGroup false false visible false"><button
+                  class="Button preset-tool color-undefined false undefined undefined undefined false undefined"
+                  title="">
+                  <div class="icon icon-ga-rectangle"></div>
+                  <div class="tooltip">Rectangular Area tool <div class="key-hint">g</div>
+                  </div>
+                </button>
+                <div class="indicator icon-tool-group-indicator"></div>
+              </div>
+              <div class="toolGroup false false visible false"><button
+                  class="Button preset-tool color-undefined false undefined undefined undefined false undefined"
+                  title="">
+                  <div class="icon icon-shape-rectangle"></div>
+                  <div class="tooltip">Rectangle tool <div class="key-hint">h</div>
+                  </div>
+                </button>
+                <div class="indicator icon-tool-group-indicator"></div>
+              </div>
+              <div class="toolGroup false false visible false"><button
+                  class="Button preset-tool color-undefined false undefined undefined undefined false undefined"
+                  title="">
+                  <div class="icon icon-line"></div>
+                  <div class="tooltip">Line tool <div class="key-hint">l</div>
+                  </div>
+                </button></div>
+              <div class="toolGroup false false visible false"><button
+                  class="Button preset-tool color-undefined false undefined undefined undefined false undefined"
+                  title="">
+                  <div class="icon icon-text"></div>
+                  <div class="tooltip">Text tool <div class="key-hint">t</div>
+                  </div>
+                </button></div>
+              <div class="toolGroup false false visible false"><button
+                  class="Button preset-tool color-undefined false undefined undefined undefined false undefined"
+                  title="">
+                  <div class="icon icon-image"></div>
+                  <div class="tooltip">Image tool <div class="key-hint">i</div>
+                  </div>
+                </button></div>
+              <div class="toolGroup false false visible false"><button
+                  class="Button preset-tool color-undefined false undefined undefined undefined false undefined"
+                  title="">
+                  <div class="icon icon-restrooms-unisex"></div>
+                  <div class="tooltip">Icon tool <div class="key-hint">o</div>
+                  </div>
+                </button></div>
+              <div class="flex-spacer"></div>
+              <div class="toolGroup false false visible false"><button
+                  class="Button preset-tool color-undefined false undefined undefined undefined false undefined"
+                  title="">
+                  <div class="icon icon-hand"></div>
+                  <div class="tooltip">Hand tool <div class="key-hint">Space</div>
+                  </div>
+                </button></div>
+            </div>
+          </div>
+          <div class="CanvasGrabber false false"></div>
+          <div class="NavigationHUD false align-left">
+            <div class="ring">
+              <div class="arrows">
+                <div class="left icon-arrow-left"></div>
+                <div class="right icon-arrow-right"></div>
+                <div class="up icon-arrow-up"></div>
+                <div class="down icon-arrow-down"></div>
+              </div>
+              <div class="joystick" style=""></div>
+            </div>
+            <div class="button-switcher"><button
+                class="Button preset-hud-icon color-undefined undefined undefined undefined undefined undefined undefined"
+                title="Zoom out (alt + mouse wheel)">
+                <div class="icon icon-minus"></div>
+              </button><button
+                class="Button preset-hud-icon color-undefined undefined undefined undefined undefined undefined undefined"
+                title="Zoom in (alt + mouse wheel)">
+                <div class="icon icon-plus"></div>
+              </button></div>
+          </div>
+          <div class="FloorPickerHUD">
+            <div class="floor"><button
+                class="Button preset-hud-caption color-undefined selected undefined undefined undefined undefined undefined"
+                title="Floor 1 (⌘⌥1)">
+                <div class="caption">1</div>
+              </button></div>
+            <div class="floor"><button
+                class="Button preset-hud-caption color-undefined false undefined undefined undefined undefined undefined"
+                title="Floor 2 (⌘⌥2)">
+                <div class="caption">2</div>
+              </button></div>
+            <div class="floor"><button
+                class="Button preset-hud-icon color-undefined undefined undefined undefined undefined undefined undefined"
+                title="Edit floors">
+                <div class="icon icon-settings"></div>
+              </button></div>
+          </div>
+          <div class="StatusBar">
+            <div class="caption">Select</div>
+            <div class="description"><span class="key false">Shift + Click</span> to add or remove objects from
+              selection. <span class="key false">⌘D</span> to deselect</div>
+            <div class="status">1 object selected</div>
+          </div>
+          <div class="ChartOverlayMessages"></div>
+          <div id="panel-right" class="Panel snap-right">
+            <div class="Inspector">
+              <div class="container">
+                <div class="title">Section</div>
+                <div class="InspectorSheet wide bottom-to-edge">
+                  <div class="contextual-action"><button
+                      class="Button preset-icon-caption color-undefined undefined undefined with-caption undefined undefined undefined"
+                      title="">
+                      <div class="wrapper">
+                        <div class="icon icon-edit"></div>
+                        <div class="caption">Edit contents</div>
+                      </div>
+                    </button></div>
+                  <div class="title">Section</div>
+                  <div class="StatusInfo validation-undefined">
+                    <div class="icon icon-seats"></div>
+                    <div class="label"><span class="value">92</span><span class="caption">places</span></div>
+                  </div>
+                </div>
+                <div class="InspectorSheet false">
+                  <div class="contextual-action"><button
+                      class="Button preset-icon-caption color-undefined false undefined with-caption undefined undefined undefined"
+                      title="">
+                      <div class="wrapper">
+                        <div class="icon icon-settings"></div>
+                        <div class="caption">Manage</div>
+                      </div>
+                    </button></div>
+                  <div class="title">Category</div>
+                  <div class="CategoryInput   above" title="A">
+                    <div class="value">
+                      <div class="colors">
+                        <div class="color-sample">
+                          <div class="color" style="background-color: rgb(252, 167, 0);"></div>
+                        </div>
+                      </div>
+                      <div class="label false">A</div>
+                      <div class="icon icon-arrow-light-left"></div>
+                    </div>
+                  </div>
+                </div>
+                <div class="InspectorSheet">
+                  <div class="title">Transform</div>
+                  <div class="SliderInput undefined false undefined no-transitions">
+                    <div class="caption">Scale</div>
+                    <div class="value">
+                      <div class="arrow icon-arrow-light-left false"></div>
+                      <div class="slider" title="Click &amp; drag to change value">
+                        <div class="rail">
+                          <div class="handle" style="left: 42.8571px;"></div>
+                        </div>
+                        <div class="preview">100<span class="unit">%</span></div>
+                      </div>
+                      <div class="arrow icon-arrow-light-right false"></div>
+                    </div>
+                  </div>
+                  <div class="SliderInput undefined false undefined no-transitions">
+                    <div class="caption">Smoothing</div>
+                    <div class="value">
+                      <div class="arrow icon-arrow-light-left false"></div>
+                      <div class="slider" title="Click &amp; drag to change value">
+                        <div class="rail">
+                          <div class="handle" style="left: 50px;"></div>
+                        </div>
+                        <div class="preview">50<span class="unit">%</span></div>
+                      </div>
+                      <div class="arrow icon-arrow-light-right false"></div>
+                    </div>
+                  </div>
+                </div>
+                <div class="InspectorSheet false">
+                  <div class="title">Label</div>
+                  <div class="TextInput preset-undefined  false undefined"><label class="caption">Label</label>
+                    <div class="value"><input type="text" id="Label" autocomplete="" value="?"></div>
+                  </div>
+                  <div class="CheckboxInput undefined"><label class="caption" for="Visible">Visible</label>
+                    <div class="value"><input type="checkbox" id="Visible" checked=""></div>
+                  </div>
+                  <div class="NumericInput    false">
+                    <div class="caption">Font size</div>
+                    <div class="value">
+                      <div class="editable"><input type="text" value="12"></div>
+                      <div class="label" title="Click &amp; drag to change value">
+                        <div class="arrow icon-arrow-light-left false"></div>
+                        <div class="caption">12 <span class="unit">pt</span></div>
+                        <div class="arrow icon-arrow-light-right false"></div>
+                      </div>
+                    </div>
+                  </div>
+                  <div class="NumericInput    false">
+                    <div class="caption">Rotation</div>
+                    <div class="value">
+                      <div class="editable"><input type="text" value="0"></div>
+                      <div class="label" title="Click &amp; drag to change value">
+                        <div class="arrow icon-arrow-light-left false"></div>
+                        <div class="caption">0 <span class="unit">º</span></div>
+                        <div class="arrow icon-arrow-light-right false"></div>
+                      </div>
+                    </div>
+                  </div>
+                  <div class="NumericInput    false">
+                    <div class="caption">Position X</div>
+                    <div class="value">
+                      <div class="editable"><input type="text" value="0"></div>
+                      <div class="label" title="Click &amp; drag to change value">
+                        <div class="arrow icon-arrow-light-left false"></div>
+                        <div class="caption">0 <span class="unit">%</span></div>
+                        <div class="arrow icon-arrow-light-right false"></div>
+                      </div>
+                    </div>
+                  </div>
+                  <div class="NumericInput    false">
+                    <div class="caption">Position Y</div>
+                    <div class="value">
+                      <div class="editable"><input type="text" value="0"></div>
+                      <div class="label" title="Click &amp; drag to change value">
+                        <div class="arrow icon-arrow-light-left false"></div>
+                        <div class="caption">0 <span class="unit">%</span></div>
+                        <div class="arrow icon-arrow-light-right false"></div>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+                <div class="InspectorSheet false">
+                  <div class="title">View from seats</div>
+                  <div class="ImageInput false empty false false">
+                    <div class="dropzone">
+                      <div class="placeholder">
+                        <div class="icon icon-image"></div>
+                        <div class="label">Drop an image here or click to upload</div>
+                      </div>
+                      <div class="hint">
+                        <div class="filetypes">PNG, GIF, JPEG</div>
+                        <div class="filesize"> Up to 4 MB</div>
+                      </div><input type="file" accept="image/png,image/gif,image/jpeg">
+                    </div>
+                  </div>
+                </div>
+                <div class="InspectorSheet false">
+                  <div class="title">Miscellaneous</div>
+                  <div class="TextInput preset-undefined  false undefined"><label class="caption">Entrance</label>
+                    <div class="value"><input type="text" id="Entrance" autocomplete="" value=""></div>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+  <div id="chartDesignerWrapper">
+    <form method="post" class="form-inline" id="chartForm">
+      <div id="alert" style="display: none;">
+        <div class="message">
+          <span class="msg-content"></span>
+          <button id="ok-got-it-btn" class="btn btn-small btn-custom-transparent-whiteFg"><i class="fa fa-check"></i>
+            &nbsp;<span class="translation-placeholder" data-placeholder="ok">ok</span></button>
+        </div>
+        <div class="dismiss-alert">
+          <i class="fa fa-close dismiss-alert"></i>
+        </div>
+      </div>
+      <div class="chartdesigner svgContainer" id="drawing"><svg height="20000" version="1.1" width="20000"
+          xmlns="http://www.w3.org/2000/svg" style="overflow: hidden; position: relative; background-color: white;"
+          xmlns:xlink="http://www.w3.org/1999/xlink" xmlns:svgjs="http://svgjs.com/svgjs">
+          <image width="5000" height="5000"
+            xlink:href="https://cdn-eu.seatsio.net/system/public/charts/images/2abccfcd-5d47-4567-923c-c07a73577491"
+            x="8968" y="8728" opacity="0.8"
+            transform="matrix(0.40980620719801847,0,0,0.40980620719801847,5778.769287883097,5736.799317179971)"></image>
+          <path
+            d="M9298.992084110201,9825.391151525568L9298.387876567891,9829.450536171194L9297.194140049283,9837.471320547249L9295.408428126706,9849.469835472935L9293.030740800164,9865.446080948252L9289.466656238017,9889.394118342025L9284.716174440267,9921.313947654255L9276.998476339675,9973.17142217223L9260.971104734524,10080.864101757814L9493.030776326174,10086.987205463227L9606.828168200122,10089.965491484007L9679.71650422025,10091.839994388625L9737.480192341189,10093.29105903324L9780.119232562936,10094.318685417853L9818.293384940931,10095.179780138611L9852.00264947517,10095.874343195519L9887.44189837734,10096.492749520876L9943.195748282491,10097.306123911583L9942.412723613348,10077.84043191606L9942.078103698803,10067.599377827319L9941.930880315807,10060.09439764685L9941.884050723345,10053.162636708486L9941.937614921419,10046.80409501223L9942.062571996352,10040.297821002685L9942.258921948149,10033.643814679857L9942.526664776806,10026.842076043742L9942.865800482325,10019.892605094341L9943.43494873623,10012.946266273237L9944.234109538527,10006.003059580426L9945.26328288921,9999.062985015911L9946.52246878828,9992.12604257969L9948.011667235738,9985.192232271764L9949.730878231583,9978.261554092132L9951.680101775815,9971.334008040794L9953.859337868438,9964.409594117755L9955.87590122161,9958.002161679131L9957.729791835332,9952.111710724923L9959.42100970961,9946.738241255134L9960.949554844436,9941.881753269765L9962.315427239815,9937.542246768811L9963.518626895746,9933.719721752277L9964.559153812228,9930.414178220162L9965.437007989263,9927.625616172463L9968.451339622845,9921.42938400215L9973.602148712976,9911.825481709217L9980.889435259654,9898.813909293669L9990.313199262884,9882.394666755503L10001.87344072266,9862.567754094722L10015.570159638983,9839.333171311322L10031.403356011855,9812.690918405306L10049.373029841277,9782.640995376674L10065.788743710367,9755.672623375154L10080.650497619126,9731.785802400751L10093.958291567556,9710.98053245346L10105.712125555652,9693.256813533279L10116.604248851767,9677.939956288748L10126.6346614559,9665.029960719869L10137.880111173088,9652.502758772238L10156.570841418456,9634.286146282671L9959.916948800688,9509.186817274564L9299.014101959217,9825.244174152773L9298.992084110201,9825.391151525568"
+            fill="none" stroke="rgba(0, 136, 255, 1)" stroke-linejoin="round" stroke-linecap="round"
+            stroke-width="19.521422222222217"
+            transform="matrix(0.40980620719801847,0,0,0.40980620719801847,5778.769287883097,5736.799317179971)"></path>
+          <path
+            d="M9298.992084110201,9825.391151525568L9298.387876567891,9829.450536171194L9297.194140049283,9837.471320547249L9295.408428126706,9849.469835472935L9293.030740800164,9865.446080948252L9289.466656238017,9889.394118342025L9284.716174440267,9921.313947654255L9276.998476339675,9973.17142217223L9260.971104734524,10080.864101757814L9493.030776326174,10086.987205463227L9606.828168200122,10089.965491484007L9679.71650422025,10091.839994388625L9737.480192341189,10093.29105903324L9780.119232562936,10094.318685417853L9818.293384940931,10095.179780138611L9852.00264947517,10095.874343195519L9887.44189837734,10096.492749520876L9943.195748282491,10097.306123911583L9942.412723613348,10077.84043191606L9942.078103698803,10067.599377827319L9941.930880315807,10060.09439764685L9941.884050723345,10053.162636708486L9941.937614921419,10046.80409501223L9942.062571996352,10040.297821002685L9942.258921948149,10033.643814679857L9942.526664776806,10026.842076043742L9942.865800482325,10019.892605094341L9943.43494873623,10012.946266273237L9944.234109538527,10006.003059580426L9945.26328288921,9999.062985015911L9946.52246878828,9992.12604257969L9948.011667235738,9985.192232271764L9949.730878231583,9978.261554092132L9951.680101775815,9971.334008040794L9953.859337868438,9964.409594117755L9955.87590122161,9958.002161679131L9957.729791835332,9952.111710724923L9959.42100970961,9946.738241255134L9960.949554844436,9941.881753269765L9962.315427239815,9937.542246768811L9963.518626895746,9933.719721752277L9964.559153812228,9930.414178220162L9965.437007989263,9927.625616172463L9968.451339622845,9921.42938400215L9973.602148712976,9911.825481709217L9980.889435259654,9898.813909293669L9990.313199262884,9882.394666755503L10001.87344072266,9862.567754094722L10015.570159638983,9839.333171311322L10031.403356011855,9812.690918405306L10049.373029841277,9782.640995376674L10065.788743710367,9755.672623375154L10080.650497619126,9731.785802400751L10093.958291567556,9710.98053245346L10105.712125555652,9693.256813533279L10116.604248851767,9677.939956288748L10126.6346614559,9665.029960719869L10137.880111173088,9652.502758772238L10156.570841418456,9634.286146282671L9959.916948800688,9509.186817274564L9299.014101959217,9825.244174152773Z"
+            fill="#fddb98" stroke="#fca700" stroke-linejoin="round" stroke-width="4.880355555555554" opacity="1"
+            transform="matrix(0.40980620719801847,0,0,0.40980620719801847,5778.769287883097,5736.799317179971)"></path>
+          <text x="9804.777053869648" y="9887.508232833728" text-anchor="middle" dominant-baseline="central"
+            font-size="12" font-family="Inter, Roboto, Helvetica, Arial, sans-serif" font-weight="bold" fill="#bd7d00"
+            transform="matrix(0.40980620719801847,0,0,0.40980620719801847,5778.769287883097,5736.799317179971)"
+            pointer-events="none">?</text>
+          <path
+            d="M9298.992084110201,9825.391151525568L9298.387876567891,9829.450536171194L9297.194140049283,9837.471320547249L9295.408428126706,9849.469835472935L9293.030740800164,9865.446080948252L9289.466656238017,9889.394118342025L9284.716174440267,9921.313947654255L9276.998476339675,9973.17142217223L9260.971104734524,10080.864101757814L9493.030776326174,10086.987205463227L9606.828168200122,10089.965491484007L9679.71650422025,10091.839994388625L9737.480192341189,10093.29105903324L9780.119232562936,10094.318685417853L9818.293384940931,10095.179780138611L9852.00264947517,10095.874343195519L9887.44189837734,10096.492749520876L9943.195748282491,10097.306123911583L9942.412723613348,10077.84043191606L9942.078103698803,10067.599377827319L9941.930880315807,10060.09439764685L9941.884050723345,10053.162636708486L9941.937614921419,10046.80409501223L9942.062571996352,10040.297821002685L9942.258921948149,10033.643814679857L9942.526664776806,10026.842076043742L9942.865800482325,10019.892605094341L9943.43494873623,10012.946266273237L9944.234109538527,10006.003059580426L9945.26328288921,9999.062985015911L9946.52246878828,9992.12604257969L9948.011667235738,9985.192232271764L9949.730878231583,9978.261554092132L9951.680101775815,9971.334008040794L9953.859337868438,9964.409594117755L9955.87590122161,9958.002161679131L9957.729791835332,9952.111710724923L9959.42100970961,9946.738241255134L9960.949554844436,9941.881753269765L9962.315427239815,9937.542246768811L9963.518626895746,9933.719721752277L9964.559153812228,9930.414178220162L9965.437007989263,9927.625616172463L9968.451339622845,9921.42938400215L9973.602148712976,9911.825481709217L9980.889435259654,9898.813909293669L9990.313199262884,9882.394666755503L10001.87344072266,9862.567754094722L10015.570159638983,9839.333171311322L10031.403356011855,9812.690918405306L10049.373029841277,9782.640995376674L10065.788743710367,9755.672623375154L10080.650497619126,9731.785802400751L10093.958291567556,9710.98053245346L10105.712125555652,9693.256813533279L10116.604248851767,9677.939956288748L10126.6346614559,9665.029960719869L10137.880111173088,9652.502758772238L10156.570841418456,9634.286146282671L9959.916948800688,9509.186817274564L9299.014101959217,9825.244174152773Z"
+            fill="black" stroke="#000000" opacity="0"
+            transform="matrix(0.40980620719801847,0,0,0.40980620719801847,5778.769287883097,5736.799317179971)"></path>
+          <path
+            d="M9447.384380263256,9860.609228466847L9483.22624943723,9846.281363513692L9519.068118611201,9831.953498560537L9554.909987785173,9817.625633607382L9590.751856959145,9803.297768654227L9626.593726133118,9788.96990370107L9662.44558921536,9774.642387742884L9698.287458389334,9760.31452278973L9734.129327563307,9745.986657836575L9769.971196737279,9731.65879288342L9805.81306591125,9717.330927930265L9841.654586090255,9703.013056885378L9877.496455264227,9688.685191932223L9913.3383244382,9674.357326979069L9949.180193612174,9660.029462025914"
+            fill="none" stroke="rgba(252,167,0,0.3)" stroke-width="16" stroke-linecap="round"
+            transform="matrix(0.40980620719801847,0,0,0.40980620719801847,5778.769287883097,5736.799317179971)"
+            pointer-events="none"></path>
+          <path
+            d="M9481.852351419036,9907.353679467511L9517.69422059301,9893.025814514356L9553.536089766983,9878.697949561201L9589.377958940955,9864.370084608045L9625.219828114927,9850.04221965489L9661.0616972889,9835.714354701735L9696.913560371142,9821.386838743547L9732.755429545114,9807.058973790392L9768.597298719085,9792.731108837237L9804.438818898094,9778.413237792352L9840.280688072065,9764.085372839198L9876.122557246037,9749.757507886043L9911.964426420009,9735.429642932888L9947.806295593982,9721.101777979733L9983.648164767954,9706.773913026576"
+            fill="none" stroke="rgba(252,167,0,0.3)" stroke-width="16" stroke-linecap="round"
+            transform="matrix(0.40980620719801847,0,0,0.40980620719801847,5778.769287883097,5736.799317179971)"
+            pointer-events="none"></path>
+          <path
+            d="M9492.986989241484,9935.209241579283L9528.828858415456,9920.881376626128L9564.67072758943,9906.553511672973L9600.512596763403,9892.22564671982L9636.354465937375,9877.897781766666L9672.196335111346,9863.56991681351L9708.04819819359,9849.24240085532L9743.890067367562,9834.914535902166L9779.731587546567,9820.596664857281L9815.573456720538,9806.268799904126L9851.415325894513,9791.940934950971L9887.257195068485,9777.613069997818L9923.099064242457,9763.285205044662L9958.940933416428,9748.957340091507L9994.782802590402,9734.629475138352"
+            fill="none" stroke="rgba(252,167,0,0.3)" stroke-width="16" stroke-linecap="round"
+            transform="matrix(0.40980620719801847,0,0,0.40980620719801847,5778.769287883097,5736.799317179971)"
+            pointer-events="none"></path>
+          <path
+            d="M9504.121627063932,9963.064803691059L9539.963496237904,9948.736938737904L9575.805365411878,9934.40907378475L9611.64723458585,9920.081208831594L9647.489103759823,9905.753343878438L9683.340966842065,9891.425827920251L9719.182487021071,9877.107956875367L9755.024356195043,9862.780091922212L9790.866225369015,9848.452226969057L9826.708094542986,9834.1243620159L9862.54996371696,9819.796497062745L9898.391832890933,9805.46863210959L9934.233702064905,9791.140767156436L9970.075571238876,9776.81290220328L10005.91744041285,9762.485037250126"
+            fill="none" stroke="rgba(252,167,0,0.3)" stroke-width="16" stroke-linecap="round"
+            transform="matrix(0.40980620719801847,0,0,0.40980620719801847,5778.769287883097,5736.799317179971)"
+            pointer-events="none"></path>
+          <path
+            d="M9322.365166206648,10040.049192147819L9360.965166206648,10040.049192147819L9399.565166206648,10040.049192147819L9438.165166206647,10040.049192147819L9476.765166206647,10040.049192147819L9515.365166206648,10040.049192147819L9553.965166206648,10040.049192147819L9592.565166206648,10040.049192147819L9631.165166206647,10040.049192147819L9669.765166206647,10040.049192147819L9708.365166206648,10040.049192147819L9746.965166206648,10040.049192147819L9785.565166206648,10040.049192147819L9812.177385114375,10012.089403078386L9838.789604022102,9984.12961400895L9865.401822929829,9956.169824939518L9892.014041837556,9928.210035870085L9918.626260745283,9900.25024680065"
+            fill="none" stroke="rgba(252,167,0,0.3)" stroke-width="16" stroke-linecap="round"
+            transform="matrix(0.40980620719801847,0,0,0.40980620719801847,5778.769287883097,5736.799317179971)"
+            pointer-events="none"></path>
+          <path
+            d="M9407.65986196538,9803.746470593072L9443.409120065357,9789.187949194891L9479.158378165332,9774.629427796712L9514.907636265309,9760.07090639853L9550.656894365286,9745.512385000351L9586.40615246526,9730.95386360217L9622.155410565238,9716.395342203989L9657.904668665215,9701.83682080581L9693.65392676519,9687.278299407628L9729.403184865167,9672.719778009448L9765.152442965144,9658.161256611267L9800.901701065119,9643.602735213088L9836.650959165096,9629.044213814906L9872.400217265073,9614.485692416725"
+            fill="none" stroke="rgba(252,167,0,0.3)" stroke-width="16" stroke-linecap="round"
+            transform="matrix(0.40980620719801847,0,0,0.40980620719801847,5778.769287883097,5736.799317179971)"
+            pointer-events="none"></path>
+          <circle r="7" cx="9686.666666666666" cy="10054.444444444445" fill="white" stroke="#005cc5"
+            style="display: none;" transform="matrix(0.9,0,0,0.9,1000,1000)"></circle>
+          <rect width="900.0399144617095" height="592.5594844147981" fill="none" stroke="white" x="9258.751015845635"
+            y="9506.966728385674"
+            transform="matrix(0.40980620719801847,0,0,0.40980620719801847,5778.769287883097,5736.799317179971)"
+            stroke-width="4.880355555555554" stroke-opacity="0.9" pointer-events="none"></rect>
+          <rect width="900.0399144617095" height="592.5594844147981" fill="none" stroke="rgba(0, 136, 255, 1)"
+            x="9258.751015845635" y="9506.966728385674"
+            transform="matrix(0.40980620719801847,0,0,0.40980620719801847,5778.769287883097,5736.799317179971)"
+            stroke-width="2.440177777777777" pointer-events="none"></rect>
+          <path
+            d="M9298.992084110201,9825.391151525568L9298.387876567891,9829.450536171194L9297.194140049283,9837.471320547249L9295.408428126706,9849.469835472935L9293.030740800164,9865.446080948252L9289.466656238017,9889.394118342025L9284.716174440267,9921.313947654255L9276.998476339675,9973.17142217223L9260.971104734524,10080.864101757814L9493.030776326174,10086.987205463227L9606.828168200122,10089.965491484007L9679.71650422025,10091.839994388625L9737.480192341189,10093.29105903324L9780.119232562936,10094.318685417853L9818.293384940931,10095.179780138611L9852.00264947517,10095.874343195519L9887.44189837734,10096.492749520876L9943.195748282491,10097.306123911583L9942.412723613348,10077.84043191606L9942.078103698803,10067.599377827319L9941.930880315807,10060.09439764685L9941.884050723345,10053.162636708486L9941.937614921419,10046.80409501223L9942.062571996352,10040.297821002685L9942.258921948149,10033.643814679857L9942.526664776806,10026.842076043742L9942.865800482325,10019.892605094341L9943.43494873623,10012.946266273237L9944.234109538527,10006.003059580426L9945.26328288921,9999.062985015911L9946.52246878828,9992.12604257969L9948.011667235738,9985.192232271764L9949.730878231583,9978.261554092132L9951.680101775815,9971.334008040794L9953.859337868438,9964.409594117755L9955.87590122161,9958.002161679131L9957.729791835332,9952.111710724923L9959.42100970961,9946.738241255134L9960.949554844436,9941.881753269765L9962.315427239815,9937.542246768811L9963.518626895746,9933.719721752277L9964.559153812228,9930.414178220162L9965.437007989263,9927.625616172463L9968.451339622845,9921.42938400215L9973.602148712976,9911.825481709217L9980.889435259654,9898.813909293669L9990.313199262884,9882.394666755503L10001.87344072266,9862.567754094722L10015.570159638983,9839.333171311322L10031.403356011855,9812.690918405306L10049.373029841277,9782.640995376674L10065.788743710367,9755.672623375154L10080.650497619126,9731.785802400751L10093.958291567556,9710.98053245346L10105.712125555652,9693.256813533279L10116.604248851767,9677.939956288748L10126.6346614559,9665.029960719869L10137.880111173088,9652.502758772238L10156.570841418456,9634.286146282671L9959.916948800688,9509.186817274564L9299.014101959217,9825.244174152773L9298.992084110201,9825.391151525568"
+            fill="none" stroke="rgba(0, 136, 255, 1)" stroke-linejoin="round" stroke-linecap="round"
+            stroke-width="3.660266666666666"
+            transform="matrix(0.40980620719801847,0,0,0.40980620719801847,5778.769287883097,5736.799317179971)"></path>
+          <rect width="900.0399144617095" height="592.5594844147981" fill="black" stroke="#000000" x="9258.751015845635"
+            y="9506.966728385674"
+            transform="matrix(0.40980620719801847,0,0,0.40980620719801847,5778.769287883097,5736.799317179971)"
+            opacity="0" cursor="move" pointer-events="auto"></rect>
+          <path d="M9708.770973076491,9506.966728385674L9708.770973076491,9470.364061719009" fill="none" stroke="white"
+            stroke-width="4.880355555555554" opacity="1"
+            transform="matrix(0.40980620719801847,0,0,0.40980620719801847,5778.769287883097,5736.799317179971)"
+            pointer-events="none"></path>
+          <circle r="12.200888888888885" cx="9708.770973076491" cy="9470.364061719009" fill="#0087ff" stroke="white"
+            stroke-width="2.440177777777777"
+            transform="matrix(0.40980620719801847,0,0,0.40980620719801847,5778.769287883097,5736.799317179971)">
+          </circle>
+          <path d="M9708.770973076491,9506.966728385674L9708.770973076491,9470.364061719009" fill="none"
+            stroke="rgba(0, 136, 255, 0.9)" stroke-width="2.440177777777777" opacity="1"
+            transform="matrix(0.40980620719801847,0,0,0.40980620719801847,5778.769287883097,5736.799317179971)"
+            pointer-events="none"></path>
+          <path
+            d="M9298.992084110201,9825.391151525568L9298.387876567891,9829.450536171194L9297.194140049283,9837.471320547249L9295.408428126706,9849.469835472935L9293.030740800164,9865.446080948252L9289.466656238017,9889.394118342025L9284.716174440267,9921.313947654255L9276.998476339675,9973.17142217223L9260.971104734524,10080.864101757814L9493.030776326174,10086.987205463227L9606.828168200122,10089.965491484007L9679.71650422025,10091.839994388625L9737.480192341189,10093.29105903324L9780.119232562936,10094.318685417853L9818.293384940931,10095.179780138611L9852.00264947517,10095.874343195519L9887.44189837734,10096.492749520876L9943.195748282491,10097.306123911583L9942.412723613348,10077.84043191606L9942.078103698803,10067.599377827319L9941.930880315807,10060.09439764685L9941.884050723345,10053.162636708486L9941.937614921419,10046.80409501223L9942.062571996352,10040.297821002685L9942.258921948149,10033.643814679857L9942.526664776806,10026.842076043742L9942.865800482325,10019.892605094341L9943.43494873623,10012.946266273237L9944.234109538527,10006.003059580426L9945.26328288921,9999.062985015911L9946.52246878828,9992.12604257969L9948.011667235738,9985.192232271764L9949.730878231583,9978.261554092132L9951.680101775815,9971.334008040794L9953.859337868438,9964.409594117755L9955.87590122161,9958.002161679131L9957.729791835332,9952.111710724923L9959.42100970961,9946.738241255134L9960.949554844436,9941.881753269765L9962.315427239815,9937.542246768811L9963.518626895746,9933.719721752277L9964.559153812228,9930.414178220162L9965.437007989263,9927.625616172463L9968.451339622845,9921.42938400215L9973.602148712976,9911.825481709217L9980.889435259654,9898.813909293669L9990.313199262884,9882.394666755503L10001.87344072266,9862.567754094722L10015.570159638983,9839.333171311322L10031.403356011855,9812.690918405306L10049.373029841277,9782.640995376674L10065.788743710367,9755.672623375154L10080.650497619126,9731.785802400751L10093.958291567556,9710.98053245346L10105.712125555652,9693.256813533279L10116.604248851767,9677.939956288748L10126.6346614559,9665.029960719869L10137.880111173088,9652.502758772238L10156.570841418456,9634.286146282671L9959.916948800688,9509.186817274564L9299.014101959217,9825.244174152773Z"
+            fill="none" stroke="#0784fa" stroke-width="29.282133333333327" opacity="0" cursor="pointer"
+            transform="matrix(0.40980620719801847,0,0,0.40980620719801847,5778.769287883097,5736.799317179971)"></path>
+          <path
+            d="M9298.992084110201,9825.391151525568L9298.387876567891,9829.450536171194L9297.194140049283,9837.471320547249L9295.408428126706,9849.469835472935L9293.030740800164,9865.446080948252L9289.466656238017,9889.394118342025L9284.716174440267,9921.313947654255L9276.998476339675,9973.17142217223L9260.971104734524,10080.864101757814L9493.030776326174,10086.987205463227L9606.828168200122,10089.965491484007L9679.71650422025,10091.839994388625L9737.480192341189,10093.29105903324L9780.119232562936,10094.318685417853L9818.293384940931,10095.179780138611L9852.00264947517,10095.874343195519L9887.44189837734,10096.492749520876L9943.195748282491,10097.306123911583L9942.412723613348,10077.84043191606L9942.078103698803,10067.599377827319L9941.930880315807,10060.09439764685L9941.884050723345,10053.162636708486L9941.937614921419,10046.80409501223L9942.062571996352,10040.297821002685L9942.258921948149,10033.643814679857L9942.526664776806,10026.842076043742L9942.865800482325,10019.892605094341L9943.43494873623,10012.946266273237L9944.234109538527,10006.003059580426L9945.26328288921,9999.062985015911L9946.52246878828,9992.12604257969L9948.011667235738,9985.192232271764L9949.730878231583,9978.261554092132L9951.680101775815,9971.334008040794L9953.859337868438,9964.409594117755L9955.87590122161,9958.002161679131L9957.729791835332,9952.111710724923L9959.42100970961,9946.738241255134L9960.949554844436,9941.881753269765L9962.315427239815,9937.542246768811L9963.518626895746,9933.719721752277L9964.559153812228,9930.414178220162L9965.437007989263,9927.625616172463L9968.451339622845,9921.42938400215L9973.602148712976,9911.825481709217L9980.889435259654,9898.813909293669L9990.313199262884,9882.394666755503L10001.87344072266,9862.567754094722L10015.570159638983,9839.333171311322L10031.403356011855,9812.690918405306L10049.373029841277,9782.640995376674L10065.788743710367,9755.672623375154L10080.650497619126,9731.785802400751L10093.958291567556,9710.98053245346L10105.712125555652,9693.256813533279L10116.604248851767,9677.939956288748L10126.6346614559,9665.029960719869L10137.880111173088,9652.502758772238L10156.570841418456,9634.286146282671L9959.916948800688,9509.186817274564L9299.014101959217,9825.244174152773Z"
+            fill="none" stroke="#0784fa" stroke-width="4.880355555555554" opacity="0"
+            transform="matrix(0.40980620719801847,0,0,0.40980620719801847,5778.769287883097,5736.799317179971)"
+            pointer-events="none"></path>
+          <circle r="26.841955555555547" cx="9707.697232925086" cy="9823.397462761823"
+            transform="matrix(0.40980620719801847,0,0,0.40980620719801847,5778.769287883097,5736.799317179971)"
+            stroke-width="1.2200888888888886" cursor="pointer" fill="white" fill-opacity="1" stroke="black"
+            stroke-opacity="0.2" style="display: none;"></circle><text x="9707.697232925086" y="9823.397462761823"
+            text-anchor="middle" dominant-baseline="central"
+            transform="matrix(0.40980620719801847,0,0,0.40980620719801847,5778.769287883097,5736.799317179971)"
+            pointer-events="none" font-size="29.282133333333327" cursor="pointer" font-family="seatsdesigner"
+            fill="rgba(0, 0, 0, 1)" style="display: none;">✻</text><text x="9707.697232925086" y="9872.201018317377"
+            text-anchor="middle" dominant-baseline="central"
+            transform="matrix(0.40980620719801847,0,0,0.40980620719801847,5778.769287883097,5736.799317179971)"
+            pointer-events="none" font-size="19.521422222222217"
+            font-family="Inter, Roboto, Helvetica, Arial, sans-serif" fill="rgba(0, 0, 0, .8)"
+            style="display: none;"></text>
+          <desc style="-webkit-tap-highlight-color: rgba(0, 0, 0, 0);">Created with Raphaël 2.1.2</desc>
+          <defs style="-webkit-tap-highlight-color: rgba(0, 0, 0, 0);"></defs>
+        </svg></div>
+    </form>
+  </div>
+
+
+  <div id="renderingError">
+    <div>
+      <div class="message"></div>
+    </div>
+  </div>
+
+  <script>
+    $(function () {
+      initChartDesignerIframe('https://api-eu.seatsio.net', 'https://cdn-eu.seatsio.net', 'https://data.seatsio.net');
+    });
+  </script>
+
+
+
+</body>
+
+</html>

@@ -15,8 +15,7 @@
       "Bash(lsof:*)",
       "Bash(curl:*)",
       "Bash(npx playwright-core@latest screenshot:*)",
-      "Bash(npm run typecheck)",
-      "Bash(npm run dev)"
+      "Bash(npm run typecheck)"
     ]
   }
 }
