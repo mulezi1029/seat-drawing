@@ -1,18 +1,21 @@
 /**
- * Canvas 组件 - 基于标准 SVG 分层架构
+ * Canvas 组件 - 基于 Overflow Scroll 架构（seats.io 风格）
  *
  * 架构:
- * <svg>
- *   <g id="background-layer">       <!-- 背景 SVG -->
- *   <g id="viewport-layer" transform="...">  <!-- 唯一 transform -->
- *     <g id="section-layer"></g>
- *     <g id="seat-layer"></g>
- *     <g id="overlay-layer"></g>   <!-- 使用 vector-effect="non-scaling-stroke" -->
- *   </g>
- * </svg>
+ * <div class="canvas-container" style="overflow: scroll">  <!-- 滚动容器 -->
+ *   <svg class="canvas-content" style="width: 50000px; height: 50000px; transform: scale(...)">
+ *     <g id="background-layer"></g>
+ *     <g id="viewport-layer">  <!-- 不再做 transform，直接用 world 坐标 -->
+ *       <g id="section-layer"></g>
+ *       <g id="seat-layer"></g>
+ *       <g id="overlay-layer"></g>
+ *     </g>
+ *   </svg>
+ * </div>
  *
  * 核心原则:
- * - 只有 viewport-layer 做 transform
+ * - 外层容器 overflow: scroll，平移通过 scrollLeft/scrollTop 实现
+ * - SVG 固定大尺寸，使用 CSS transform scale 进行缩放
  * - seat/section 不使用 transform，直接用 world 坐标
  * - 纯渲染引擎，单向数据流
  */
@@ -58,6 +61,9 @@ export interface CanvasProps {
   seatRadius: number;
   seatSpacing: number;
   categories?: Category[];
+  // Overflow scroll 架构支持
+  contentTransform?: { transform: string; transformOrigin: string };
+  contentSize?: { width: number; height: number };
 
   onAddSectionPoint: (point: Point) => void;
   onRemoveLastSectionPoint: () => void;
@@ -114,6 +120,8 @@ export const Canvas = forwardRef<HTMLDivElement, CanvasProps>(
       seatSpacing,
       categories,
       sectionCanvas,
+      contentTransform = { transform: 'scale(1)', transformOrigin: 'center center' },
+      contentSize = { width: CANVAS_CONFIG.WORLD_SIZE, height: CANVAS_CONFIG.WORLD_SIZE },
     },
     ref
   ) => {
@@ -175,6 +183,11 @@ export const Canvas = forwardRef<HTMLDivElement, CanvasProps>(
         sceneGraph.addSection(section);
       });
 
+      // 更新背景图 URL
+      if (rendererRef.current) {
+        rendererRef.current.setBackgroundImageUrl(venueMap.svgUrl ?? null);
+      }
+
       // 数据变化时需要完整渲染
       rendererRef.current?.render(sceneGraph, viewport, {
         selectedSeatIds,
@@ -195,7 +208,8 @@ export const Canvas = forwardRef<HTMLDivElement, CanvasProps>(
         categories,
         sectionCanvas,
       });
-    }, [venueMap, selectedSeatIds, drawingPoints, mode, seatTool, seatRadius, seatSpacing, viewConfig, categories, linePoints, sectionCanvas]);
+      // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [venueMap, selectedSeatIds, drawingPoints, mode, seatTool, seatRadius, seatSpacing, viewConfig, categories, linePoints, sectionCanvas, viewport]);
 
     // Viewport 变化时 - 只更新变换（高频，平移/缩放）
     useEffect(() => {
@@ -229,35 +243,29 @@ export const Canvas = forwardRef<HTMLDivElement, CanvasProps>(
       });
     }, [viewConfig.backgroundColor]);
 
-    // 更新背景图片
-    useEffect(() => {
-      if (!rendererRef.current) return;
-      rendererRef.current.updateBackgroundImage(venueMap.svgUrl, sectionCanvas);
-    }, [venueMap.svgUrl, sectionCanvas]);
+    // 注意：背景图片由 render 方法统一处理，不需要单独的 useEffect
+    // render 的 useEffect 依赖 venueMap（包含 svgUrl）和 sectionCanvas，
+    // 当这些值变化时会自动重新渲染背景图
 
-    // ========== 坐标转换函数 ==========
+    // ========== 坐标转换函数（Overflow Scroll 架构）==========
 
-    const screenToViewport = useCallback((screenX: number, screenY: number): Point => {
-      const rect = containerRef.current?.getBoundingClientRect();
-      if (!rect) return { x: 0, y: 0 };
-      return {
-        x: screenX - rect.left,
-        y: screenY - rect.top,
-      };
-    }, []);
-
-    const viewportToWorld = useCallback((viewportX: number, viewportY: number): Point => {
-      const { scale, offsetX, offsetY } = viewport;
-      return {
-        x: (viewportX - offsetX) / scale,
-        y: (viewportY - offsetY) / scale,
-      };
-    }, [viewport]);
+    const WORLD_CENTER = CANVAS_CONFIG.WORLD_SIZE / 2;
 
     const screenToWorld = useCallback((screenX: number, screenY: number): Point => {
-      const vp = screenToViewport(screenX, screenY);
-      return viewportToWorld(vp.x, vp.y);
-    }, [screenToViewport, viewportToWorld]);
+      if (!containerRef.current) return { x: 0, y: 0 };
+      const rect = containerRef.current.getBoundingClientRect();
+      const { scale } = viewport;
+
+      // 计算鼠标在容器内的位置（考虑滚动）
+      const xInContainer = screenX - rect.left + containerRef.current.scrollLeft;
+      const yInContainer = screenY - rect.top + containerRef.current.scrollTop;
+
+      // 转换到世界坐标（考虑缩放）
+      return {
+        x: (xInContainer - WORLD_CENTER) / scale,
+        y: (yInContainer - WORLD_CENTER) / scale,
+      };
+    }, [viewport]);
 
     const getMousePos = useCallback((e: React.MouseEvent | MouseEvent): Point => {
       return screenToWorld(e.clientX, e.clientY);
@@ -311,9 +319,20 @@ export const Canvas = forwardRef<HTMLDivElement, CanvasProps>(
       },
       screenToWorld,
       worldToScreen: (worldX: number, worldY: number): Point => {
+        if (!containerRef.current) {
+          return {
+            x: WORLD_CENTER + worldX * viewport.scale - viewport.offsetX,
+            y: WORLD_CENTER + worldY * viewport.scale - viewport.offsetY,
+          };
+        }
+        const rect = containerRef.current.getBoundingClientRect();
+        // 转换世界坐标到屏幕坐标
+        const xInCanvas = WORLD_CENTER + worldX * viewport.scale;
+        const yInCanvas = WORLD_CENTER + worldY * viewport.scale;
+
         return {
-          x: worldX * viewport.scale + viewport.offsetX,
-          y: worldY * viewport.scale + viewport.offsetY,
+          x: xInCanvas - containerRef.current.scrollLeft + rect.left,
+          y: yInCanvas - containerRef.current.scrollTop + rect.top,
         };
       },
       venueMap,
@@ -718,10 +737,30 @@ export const Canvas = forwardRef<HTMLDivElement, CanvasProps>(
       return 'default';
     }, [isPanning, isDraggingSeats, seatDragStart, isSpacePressed, isAltPressed, mode, seatTool]);
 
+    // 同步滚动位置到 viewport 状态
+    const handleScroll = useCallback(() => {
+      if (!containerRef.current || !onSetPan) return;
+      onSetPan({
+        x: containerRef.current.scrollLeft,
+        y: containerRef.current.scrollTop,
+      });
+    }, [onSetPan]);
+
+    // 同步 viewport 状态到滚动位置（当 viewport.offsetX/Y 变化时）
+    useEffect(() => {
+      if (!containerRef.current) return;
+      if (containerRef.current.scrollLeft !== viewport.offsetX) {
+        containerRef.current.scrollLeft = viewport.offsetX;
+      }
+      if (containerRef.current.scrollTop !== viewport.offsetY) {
+        containerRef.current.scrollTop = viewport.offsetY;
+      }
+    }, [viewport.offsetX, viewport.offsetY]);
+
     return (
       <div
         ref={containerRef}
-        className="relative w-full h-full overflow-hidden"
+        className="relative w-full h-full overflow-auto"
         style={{
           cursor: getCursorStyle(),
         }}
@@ -730,27 +769,31 @@ export const Canvas = forwardRef<HTMLDivElement, CanvasProps>(
             e.preventDefault();
           }
         }}
+        onScroll={handleScroll}
       >
-        {/* 主 SVG 画布 - 按照标准架构分层 */}
+        {/* 主 SVG 画布 - Overflow Scroll 架构 */}
         <svg
           ref={svgRef}
-          style={{ backgroundColor: viewConfig.backgroundColor,overflow: 'hidden',position: 'relative',willChange:'contents' }}
-          width={CANVAS_CONFIG.WORLD_SIZE}
-          height={CANVAS_CONFIG.WORLD_SIZE}
+          style={{
+            backgroundColor: viewConfig.backgroundColor,
+            ...contentTransform,
+            willChange: 'transform',
+            display: 'block',
+          }}
+          width={contentSize.width}
+          height={contentSize.height}
           onMouseDown={handleMouseDown}
           onMouseMove={handleMouseMove}
           onMouseUp={handleMouseUp}
           onDoubleClick={handleDoubleClick}
-          // onWheel={handleWheel}
         >
           {/* SVGRenderer 会在这里创建分层结构 */}
 
-          {/* 工具 Overlay - 在 viewport transform 下渲染 */}
+          {/* 工具 Overlay - 直接使用 world 坐标渲染 */}
           {toolOverlayNode && (
             <g
               className="tool-overlay"
               style={{ pointerEvents: 'none' }}
-              transform={`translate(${viewport.offsetX}, ${viewport.offsetY}) scale(${viewport.scale})`}
             >
               {toolOverlayNode}
             </g>

@@ -94,6 +94,10 @@ export interface UseVenueDesignerNewReturn {
   categories: Category[];
   sectionCanvas: SectionCanvas | null;
 
+  // 视口内容（用于 overflow scroll 架构）
+  contentTransform: { transform: string; transformOrigin: string };
+  contentSize: { width: number; height: number };
+
   // 计算属性
   currentSection: Section | null;
   canUndo: boolean;
@@ -202,8 +206,11 @@ export function useVenueDesignerNew(): UseVenueDesignerNewReturn {
   }, [venueMap.sections]);
 
   // ========== 设置命令上下文 ==========
+  // 使用 ref 来保持 context 的稳定性，避免每次渲染都重新创建
+  const contextRef = useRef<CommandContext | null>(null);
+
   useEffect(() => {
-    const context: CommandContext = {
+    contextRef.current = {
       venueMap,
       editorState: {
         mode: editorState.mode,
@@ -237,8 +244,23 @@ export function useVenueDesignerNew(): UseVenueDesignerNewReturn {
         return section?.seats.find(s => s.id === seatId);
       },
     };
+  });
+
+  // 只初始化一次 CommandManager
+  useEffect(() => {
+    const context: CommandContext = {
+      get venueMap() { return contextRef.current!.venueMap; },
+      get editorState() { return contextRef.current!.editorState; },
+      setVenueMap: (...args) => contextRef.current!.setVenueMap(...args),
+      setEditorState: (...args) => contextRef.current!.setEditorState(...args),
+      setSelectedSectionId: (...args) => contextRef.current!.setSelectedSectionId(...args),
+      setSelectedSeatIds: (...args) => contextRef.current!.setSelectedSeatIds(...args),
+      getSection: (...args) => contextRef.current!.getSection(...args),
+      getSeat: (...args) => contextRef.current!.getSeat(...args),
+    };
     commands.setupContext(context);
-  }, [venueMap, editorState, selection, commands]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [commands.setupContext]);
 
   // ========== 历史记录管理（使用命令系统） ==========
   const undo = useCallback(() => {
@@ -394,10 +416,16 @@ export function useVenueDesignerNew(): UseVenueDesignerNewReturn {
     setSectionCanvas(newSectionCanvas);
 
     // 6. 应用 Viewport 变换
+    // 6. 应用 Viewport 变换（overflow scroll 方式）
+    // 使用新的坐标系统：scrollLeft/scrollTop
+    const WORLD_CENTER = CANVAS_CONFIG.WORLD_SIZE / 2;
+    const scrollLeft = WORLD_CENTER + centerX * scale - canvasWidth / 2;
+    const scrollTop = WORLD_CENTER + centerY * scale - canvasHeight / 2;
+
     viewport.setViewport({
       scale,
-      offsetX: canvasWidth / 2 - centerX * scale,
-      offsetY: canvasHeight / 2 - centerY * scale,
+      offsetX: scrollLeft,
+      offsetY: scrollTop,
     });
 
     // 设置选中区域并切换到 draw-seat 模式
@@ -617,10 +645,15 @@ export function useVenueDesignerNew(): UseVenueDesignerNewReturn {
     const centerX = (minX + maxX) / 2;
     const centerY = (minY + maxY) / 2;
 
+    // 使用 overflow scroll 坐标系统
+    const WORLD_CENTER = CANVAS_CONFIG.WORLD_SIZE / 2;
+    const scrollLeft = WORLD_CENTER + centerX * scale - width / 2;
+    const scrollTop = WORLD_CENTER + centerY * scale - height / 2;
+
     viewport.setViewport({
       scale,
-      offsetX: width / 2 - centerX * scale,
-      offsetY: height / 2 - centerY * scale,
+      offsetX: scrollLeft,
+      offsetY: scrollTop,
     });
   }, [venueMap.sections, viewport]);
 
@@ -641,9 +674,23 @@ export function useVenueDesignerNew(): UseVenueDesignerNewReturn {
       const url = URL.createObjectURL(file);
       const command = new UploadSvgCommand(url, content);
       commands.execute(command);
+
+      // 上传后自动定位到原点（背景图中心位置）
+      const WORLD_CENTER = CANVAS_CONFIG.WORLD_SIZE / 2;
+      const imageWidth = CANVAS_CONFIG.IMAGE_WIDTH;
+      const imageHeight = CANVAS_CONFIG.IMAGE_HEIGHT ?? imageWidth;
+      // 背景图在 (-imageWidth/2, -imageHeight/2) 到 (imageWidth/2, imageHeight/2) 之间
+      // 缩放以适合显示整个背景图
+      const scale = 0.8; // 稍微缩小一点以便看到完整背景图
+      viewport.zoomToFit({
+        minX: -imageWidth / 2 - 50,
+        minY: -imageHeight / 2 - 50,
+        maxX: imageWidth / 2 + 50,
+        maxY: imageHeight / 2 + 50
+      }, 100);
     };
     reader.readAsText(file);
-  }, [commands]);
+  }, [commands, viewport]);
 
   const triggerFileUpload = useCallback(() => {
     fileInputRef.current?.click();
@@ -771,6 +818,10 @@ export function useVenueDesignerNew(): UseVenueDesignerNewReturn {
     viewConfig,
     categories,
     sectionCanvas,
+
+    // 视口内容（用于 overflow scroll 架构）
+    contentTransform: viewport.contentTransform,
+    contentSize: viewport.contentSize,
 
     // 计算属性
     currentSection,

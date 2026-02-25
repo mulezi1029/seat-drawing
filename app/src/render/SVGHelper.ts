@@ -6,6 +6,7 @@
  */
 
 const SVG_NS = 'http://www.w3.org/2000/svg';
+const XLINK_NS = 'http://www.w3.org/1999/xlink';
 
 /**
  * 创建 SVG 元素
@@ -15,13 +16,19 @@ export function createSVGElement<K extends keyof SVGElementTagNameMap>(
   attributes?: Record<string, string | number>
 ): SVGElementTagNameMap[K] {
   const element = document.createElementNS(SVG_NS, tagName);
-  
+
   if (attributes) {
     Object.entries(attributes).forEach(([key, value]) => {
-      element.setAttribute(key, String(value));
+      // 对于 href 属性，同时设置 SVG 2.0 的 href 和 XLink 的 href 以确保兼容性
+      if (key === 'href' && tagName === 'image') {
+        element.setAttribute('href', String(value));
+        element.setAttributeNS(XLINK_NS, 'xlink:href', String(value));
+      } else {
+        element.setAttribute(key, String(value));
+      }
     });
   }
-  
+
   return element;
 }
 

@@ -127,35 +127,44 @@ export class SVGRenderer implements Renderer {
   }
 
   /**
-   * 更新视口变换（高频调用，只更新 transform）
-   * seats.io 风格：只更新 viewport 的 transform 属性
+   * 更新视口变换（高频调用，只更新 overlay）
+   * Overflow Scroll 架构：缩放和平移通过 CSS transform 和 scroll 实现
+   * 这里只更新 overlay 渲染
    */
-  updateViewport(viewport: ViewportState, context?: RenderContext): void {
-    if (this.viewport) {
-      updateTransform(this.viewport, viewport.offsetX, viewport.offsetY, viewport.scale);
-    }
-
+  updateViewport(_viewport: ViewportState, context?: RenderContext): void {
     // 更新 overlay（需要随鼠标移动实时更新）
     if (context && this.currentScene) {
-      this.renderOverlayOnly(context, viewport);
+      this.renderOverlayOnly(context, _viewport);
     }
   }
 
   /**
-   * 渲染网格
+   * 渲染网格 - Overflow Scroll 架构
    */
   private renderGrid(viewConfig: ViewConfig | undefined, viewport: ViewportState): SVGGElement | null {
     if (!viewConfig?.showGrid || !this.viewport) return null;
 
     const gridSize = viewConfig.gridSize;
     const gridColor = viewConfig.gridColor || '#e2e8f0';
+    const WORLD_SIZE = CANVAS_CONFIG.WORLD_SIZE;
+    const WORLD_CENTER = WORLD_SIZE / 2;
 
-    // 计算可见区域的世界坐标范围
+    // 在 overflow scroll 架构下，计算可见区域的世界坐标
+    // scrollLeft/scrollTop 是当前滚动位置
+    const scrollLeft = viewport.offsetX;
+    const scrollTop = viewport.offsetY;
+    const { scale } = viewport;
+
+    // 获取容器尺寸
     const containerRect = this.svg.getBoundingClientRect();
-    const visibleMinX = -viewport.offsetX / viewport.scale;
-    const visibleMinY = -viewport.offsetY / viewport.scale;
-    const visibleMaxX = (containerRect.width - viewport.offsetX) / viewport.scale;
-    const visibleMaxY = (containerRect.height - viewport.offsetY) / viewport.scale;
+    const containerWidth = containerRect.width / scale; // 考虑缩放后的实际可见宽度
+    const containerHeight = containerRect.height / scale;
+
+    // 计算可见区域的世界坐标范围（考虑缩放）
+    const visibleMinX = (scrollLeft - WORLD_CENTER) / scale;
+    const visibleMinY = (scrollTop - WORLD_CENTER) / scale;
+    const visibleMaxX = visibleMinX + containerWidth;
+    const visibleMaxY = visibleMinY + containerHeight;
 
     // 扩展一些边距
     const margin = gridSize * 2;
@@ -171,7 +180,7 @@ export class SVGRenderer implements Renderer {
     for (let x = startX; x <= endX; x += gridSize) {
       const line = createLine(x, startY, x, endY, {
         stroke: gridColor,
-        'stroke-width': '1',
+        'stroke-width': String(1 / scale), // 线宽随缩放调整，保持视觉一致
         opacity: '0.5',
       });
       gridGroup.appendChild(line);
@@ -181,7 +190,7 @@ export class SVGRenderer implements Renderer {
     for (let y = startY; y <= endY; y += gridSize) {
       const line = createLine(startX, y, endX, y, {
         stroke: gridColor,
-        'stroke-width': '1',
+        'stroke-width': String(1 / scale),
         opacity: '0.5',
       });
       gridGroup.appendChild(line);
@@ -210,34 +219,23 @@ export class SVGRenderer implements Renderer {
     // 更新叠加层渲染器的容器引用
     this.overlayRenderer?.setContainerElement(overlayContainer);
 
-    // 更新 transform
-    this.updateViewport(viewport);
+    // 更新 overlay（在 overflow scroll 架构下，不更新 viewport transform）
+    if (context) {
+      this.renderOverlayOnly(context, viewport);
+    }
 
     // 收集所有元素
     const elements: SVGElement[] = [];
 
-    // 0. 网格层（在最底部）
-    const gridLayer = this.renderGrid(context?.viewConfig, viewport);
-    if (gridLayer) {
-      elements.push(gridLayer);
-    }
-
-    // 1. 背景图片 - 根据 sectionCanvas 进行校准显示
+    // 0. 背景图片 - 最先渲染，在最底层
+    // 注意：背景图在 render 中创建，这样当 viewport 被 clear 时会被正确处理
     if (this.backgroundImageUrl) {
       const imageWidth = CANVAS_CONFIG.IMAGE_WIDTH;
       const imageHeight = CANVAS_CONFIG.IMAGE_HEIGHT ?? imageWidth;
-
-      // 计算背景图偏移
-      // 如果没有 sectionCanvas（view 模式），背景图居中显示在原点
-      // 如果有 sectionCanvas（draw-seat 模式），背景图根据 section 位置偏移
-      const offsetX = context?.sectionCanvas?.backgroundOffset.x ?? 0;
-      const offsetY = context?.sectionCanvas?.backgroundOffset.y ?? 0;
-
-      // 应用偏移：背景图位置 = 默认位置 - 偏移量
       const image = createSVGElement('image', {
         class: 'bg-image',
-        x: String(-imageWidth / 2 - offsetX),
-        y: String(-imageHeight / 2 - offsetY),
+        x: String(CANVAS_CONFIG.WORLD_SIZE/2),
+        y: String(CANVAS_CONFIG.WORLD_SIZE/2),
         width: String(imageWidth),
         height: String(imageHeight),
         preserveAspectRatio: 'xMidYMid meet',
@@ -246,6 +244,12 @@ export class SVGRenderer implements Renderer {
       });
       image.style.pointerEvents = 'none';
       elements.push(image);
+    }
+
+    // 1. 网格层（在背景图之后）
+    const gridLayer = this.renderGrid(context?.viewConfig, viewport);
+    if (gridLayer) {
+      elements.push(gridLayer);
     }
 
     // 2. Sections - 扁平化渲染，直接添加到 viewport
@@ -539,6 +543,15 @@ export class SVGRenderer implements Renderer {
    */
   updateOptions(options: Partial<RenderOptions>): void {
     this.options = { ...this.options, ...options };
+  }
+
+  /**
+   * 设置背景图片 URL
+   * 用于外部更新背景图地址，配合 render() 方法使用
+   * @param url - 背景图片 URL
+   */
+  setBackgroundImageUrl(url: string | null): void {
+    this.backgroundImageUrl = url;
   }
 
   /**

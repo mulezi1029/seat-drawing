@@ -16,7 +16,8 @@
       "Bash(curl:*)",
       "Bash(npx playwright-core@latest screenshot:*)",
       "Bash(npm run typecheck)",
-      "Bash(npm run dev)"
+      "Bash(npm run dev)",
+      "Bash(/Users/cy/Downloads/座位绘制功能/app/node_modules/.bin/tsc:*)"
     ]
   }
 }

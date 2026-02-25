@@ -108,6 +108,8 @@ function App() {
     cutSelectedSeats,
     pasteSeats,
     executeCommand,
+    contentTransform,
+    contentSize,
   } = useVenueDesignerNew();
 
   /**
@@ -582,8 +584,8 @@ function App() {
           </div>
 
 
-          {/* 中央画布区域：包含 SVG 画布和状态指示器 */}
-          <div ref={canvasContainerRef} className="flex-1 relative overflow-hidden">
+          {/* 中央画布区域：包含 SVG 画布和状态指示器（overflow scroll 架构） */}
+          <div ref={canvasContainerRef} className="flex-1 relative overflow-auto">
             <Canvas
               venueMap={venueMap}
               width={canvasSize.width}
@@ -599,6 +601,8 @@ function App() {
               seatSpacing={drawConfig.seatSpacing}
               categories={categories}
               sectionCanvas={sectionCanvas}
+              contentTransform={contentTransform}
+              contentSize={contentSize}
               onAddSectionPoint={addSectionPoint}
               onRemoveLastSectionPoint={removeLastSectionPoint}
               onCompleteSection={() => setShowSectionDialog(true)}
