@@ -13,6 +13,11 @@ import {
   Square,
   Hand,
   Focus,
+  Circle,
+  MoreHorizontal,
+  Route,
+  Hexagon,
+  Grid3x3,
 } from 'lucide-react';
 import {
   Tooltip,
@@ -124,6 +129,45 @@ export const PanelLeft: React.FC<PanelLeftProps> = ({ activeTool, onToolChange }
         shortcut="G"
         active={activeTool === 'area'}
         onClick={() => onToolChange('area')}
+      />
+      <ToolButton
+        icon={<Hexagon className="w-5 h-5" />}
+        tooltip="Polygon tool"
+        shortcut="P"
+        active={activeTool === 'polygon'}
+        onClick={() => onToolChange('polygon')}
+      />
+
+      <div className="w-8 h-px bg-gray-200 my-1" />
+
+      {/* 座位工具组 */}
+      <ToolButton
+        icon={<Circle className="w-5 h-5" />}
+        tooltip="Single seat tool"
+        shortcut="1"
+        active={activeTool === 'single'}
+        onClick={() => onToolChange('single')}
+      />
+      <ToolButton
+        icon={<MoreHorizontal className="w-5 h-5" />}
+        tooltip="Row seats tool"
+        shortcut="2"
+        active={activeTool === 'row'}
+        onClick={() => onToolChange('row')}
+      />
+      <ToolButton
+        icon={<Route className="w-5 h-5" />}
+        tooltip="Line seats tool"
+        shortcut="3"
+        active={activeTool === 'line'}
+        onClick={() => onToolChange('line')}
+      />
+      <ToolButton
+        icon={<Grid3x3 className="w-5 h-5" />}
+        tooltip="Multi-rows seats tool"
+        shortcut="4"
+        active={activeTool === 'multi-rows'}
+        onClick={() => onToolChange('multi-rows')}
       />
 
       <div className="flex-1" />
