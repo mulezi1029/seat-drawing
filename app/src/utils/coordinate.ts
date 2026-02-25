@@ -226,3 +226,54 @@ export function findSnapPoint(
 
   return { point, type: 'none' };
 }
+
+/**
+ * 计算两点之间的角度（度数）
+ *
+ * @param center - 中心点
+ * @param point - 目标点
+ * @returns 角度（0-360度）
+ */
+export function getAngle(center: Point, point: Point): number {
+  const dx = point.x - center.x;
+  const dy = point.y - center.y;
+  let angle = Math.atan2(dy, dx) * (180 / Math.PI);
+  if (angle < 0) {
+    angle += 360;
+  }
+  return angle;
+}
+
+/**
+ * 旋转点围绕中心点
+ *
+ * @param point - 要旋转的点
+ * @param center - 旋转中心
+ * @param angle - 旋转角度（度数）
+ * @returns 旋转后的点
+ */
+export function rotatePoint(point: Point, center: Point, angle: number): Point {
+  const rad = angle * (Math.PI / 180);
+  const cos = Math.cos(rad);
+  const sin = Math.sin(rad);
+
+  const dx = point.x - center.x;
+  const dy = point.y - center.y;
+
+  return {
+    x: center.x + dx * cos - dy * sin,
+    y: center.y + dx * sin + dy * cos,
+  };
+}
+
+/**
+ * 旋转多边形的所有顶点
+ *
+ * @param points - 多边形顶点数组
+ * @param center - 旋转中心
+ * @param angle - 旋转角度（度数）
+ * @returns 旋转后的顶点数组
+ */
+export function rotatePolygon(points: Point[], center: Point, angle: number): Point[] {
+  return points.map(p => rotatePoint(p, center, angle));
+}

@@ -105,6 +105,15 @@ export interface Section {
 export type EditorMode = 'view' | 'draw-section' | 'draw-polygon' | 'draw-seat' | 'select';
 
 /**
+ * 选择框状态
+ */
+export interface SelectionBox {
+  start: Point;
+  end: Point;
+  isSelecting: boolean;
+}
+
+/**
  * 对齐检测结果
  * @interface AlignmentResult
  * @property {boolean} isHorizontalAligned - 是否与某点水平对齐

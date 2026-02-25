@@ -20,6 +20,7 @@ import { FloatingControls } from '@/components/panels/FloatingControls';
 import { Button } from '@/components/ui/button';
 import { Upload } from 'lucide-react';
 import { type Section, type Point, type SnapResult, DEFAULT_SECTION_COLORS } from '@/types';
+import { rotatePolygon } from '@/utils/coordinate';
 
 import './App.css';
 
@@ -53,6 +54,9 @@ function App() {
   const [isDrawing, setIsDrawing] = useState(false);
   const [drawingPoints, setDrawingPoints] = useState<Point[]>([]);
   const [selectedSectionId, setSelectedSectionId] = useState<string | null>(null);
+  const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
+  const [selectionBoxStart, setSelectionBoxStart] = useState<Point | null>(null);
+  const [selectionBoxEnd, setSelectionBoxEnd] = useState<Point | null>(null);
 
   // ===== 绘制辅助状态 =====
   const [mousePosition, setMousePosition] = useState<Point | null>(null);
@@ -104,10 +108,120 @@ function App() {
 
     setSections(prev => [...prev, newSection]);
     setSelectedSectionId(newSection.id);
+    setSelectedIds(new Set([newSection.id]));
     setIsDrawing(false);
     setDrawingPoints([]);
     setActiveTool('select'); // 绘制完成后切换回选择工具
   }, [sections.length, generateId]);
+
+  /**
+   * 处理选择变化
+   */
+  const handleSelectionChange = useCallback((ids: Set<string>) => {
+    setSelectedIds(ids);
+    // 更新单选兼容性
+    const firstId = ids.size > 0 ? Array.from(ids)[0] : null;
+    setSelectedSectionId(firstId);
+  }, []);
+
+  /**
+   * 处理元素移动 - 实时预览
+   */
+  const handleElementsMove = useCallback((ids: Set<string>, dx: number, dy: number) => {
+    if (ids.size === 0) return;
+
+    setSections(prev => prev.map(section => {
+      if (!ids.has(section.id)) return section;
+
+      // 移动所有顶点
+      return {
+        ...section,
+        points: section.points.map(p => ({
+          x: p.x + dx,
+          y: p.y + dy,
+        })),
+      };
+    }));
+  }, []);
+
+  /**
+   * 处理元素移动结束 - 可以在这里添加撤销历史等
+   */
+  const handleElementsMoveEnd = useCallback(() => {
+    // 移动结束，可以在这里添加撤销记录
+    console.log('Elements move ended');
+  }, []);
+
+  /**
+   * 处理框选框变化
+   */
+  const handleSelectionBoxChange = useCallback((start: Point | null, end: Point | null) => {
+    setSelectionBoxStart(start);
+    setSelectionBoxEnd(end);
+  }, []);
+
+  /**
+   * 处理元素旋转 - 实时预览
+   * @param originalSections 旋转开始时的原始 section 数据，用于避免累积旋转
+   */
+  const handleElementsRotate = useCallback((ids: Set<string>, center: Point, angle: number, originalSections?: Section[]) => {
+    if (ids.size === 0) return;
+
+    setSections(prev => prev.map(section => {
+      if (!ids.has(section.id)) return section;
+
+      // 使用原始 section 数据进行旋转，避免累积旋转错误
+      const sourceSection = originalSections?.find(s => s.id === section.id) || section;
+
+      // 旋转所有顶点
+      return {
+        ...section,
+        points: rotatePolygon(sourceSection.points, center, angle),
+      };
+    }));
+  }, []);
+
+  /**
+   * 处理元素旋转结束
+   */
+  const handleElementsRotateEnd = useCallback(() => {
+    // 旋转结束，可以在这里添加撤销记录
+    console.log('Elements rotate ended');
+  }, []);
+
+  /**
+   * 处理复制选中元素
+   * - Ctrl+C 或 Ctrl+D 复制选中元素
+   * - 新元素位置偏移 +20px
+   * - 新元素被选中，原元素取消选中
+   */
+  const handleCopyElements = useCallback(() => {
+    if (selectedIds.size === 0) return;
+
+    const selectedSections = sections.filter(s => selectedIds.has(s.id));
+
+    // 生成新元素，位置偏移
+    const newSections: Section[] = selectedSections.map(section => {
+      const newId = generateId();
+      return {
+        ...section,
+        id: newId,
+        name: `${section.name} (Copy)`,
+        points: section.points.map(p => ({
+          x: p.x + 20, // 向右偏移 20px
+          y: p.y + 20, // 向下偏移 20px
+        })),
+      };
+    });
+
+    // 添加到 sections
+    setSections(prev => [...prev, ...newSections]);
+
+    // 选中新元素，取消原元素选中
+    const newIds = new Set(newSections.map(s => s.id));
+    setSelectedIds(newIds);
+    setSelectedSectionId(newSections[0]?.id || null);
+  }, [sections, selectedIds, generateId]);
 
   /**
    * 空格键处理：临时切换到 hand 工具
@@ -158,6 +272,57 @@ function App() {
       window.removeEventListener('blur', handleBlur);
     };
   }, [activeTool, isSpacePressed, previousTool]);
+
+  /**
+   * 选择工具键盘快捷键
+   * - Ctrl+A: 全选
+   * - Ctrl+C / Ctrl+D: 复制选中元素
+   * - Delete: 删除选中元素
+   * - ESC: 取消选择
+   */
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      // Ctrl+A 全选
+      if ((e.key === 'a' || e.key === 'A') && (e.ctrlKey || e.metaKey) && activeTool === 'select') {
+        e.preventDefault();
+        const allIds = new Set(sections.map(s => s.id));
+        setSelectedIds(allIds);
+        const firstId = sections.length > 0 ? sections[0].id : null;
+        setSelectedSectionId(firstId);
+      }
+
+      // Ctrl+C 或 Ctrl+D 复制
+      if ((e.key === 'c' || e.key === 'C' || e.key === 'd' || e.key === 'D')
+          && (e.ctrlKey || e.metaKey)
+          && activeTool === 'select'
+          && selectedIds.size > 0
+          && !isDrawing) {
+        e.preventDefault();
+        handleCopyElements();
+      }
+
+      // Delete 删除选中元素
+      if ((e.key === 'Delete' || e.key === 'Backspace') && selectedIds.size > 0 && activeTool === 'select' && !isDrawing) {
+        e.preventDefault();
+        // 从 sections 中删除选中的元素
+        setSections(prev => prev.filter(s => !selectedIds.has(s.id)));
+        setSelectedIds(new Set());
+        setSelectedSectionId(null);
+      }
+
+      // ESC 取消选择
+      if (e.key === 'Escape' && selectedIds.size > 0 && !isDrawing) {
+        e.preventDefault();
+        setSelectedIds(new Set());
+        setSelectedSectionId(null);
+      }
+    };
+
+    window.addEventListener('keydown', handleKeyDown);
+    return () => {
+      window.removeEventListener('keydown', handleKeyDown);
+    };
+  }, [activeTool, sections, selectedIds, isDrawing, handleCopyElements]);
 
   /**
    * 处理文件选择
@@ -252,6 +417,14 @@ function App() {
             onSnapResultChange={setSnapResult}
             onShiftPressedChange={setIsShiftPressed}
             onCtrlPressedChange={setIsCtrlPressed}
+            sections={sections}
+            selectedIds={selectedIds}
+            onSelectionChange={handleSelectionChange}
+            onSelectionBoxChange={handleSelectionBoxChange}
+            onElementsMove={handleElementsMove}
+            onElementsMoveEnd={handleElementsMoveEnd}
+            onElementsRotate={handleElementsRotate}
+            onElementsRotateEnd={handleElementsRotateEnd}
           >
             {/* SVG 渲染内容 */}
             <SVGRenderer
@@ -259,6 +432,7 @@ function App() {
               svgUrl={svgUrl}
               sections={sections}
               selectedSectionId={selectedSectionId}
+              selectedIds={selectedIds}
               isDrawing={isDrawing}
               drawingPoints={drawingPoints}
               activeTool={activeTool}
@@ -267,6 +441,8 @@ function App() {
               showDimensions={activeTool === 'section'}
               showGrid={showGrid}
               gridSize={gridSize}
+              selectionBoxStart={selectionBoxStart}
+              selectionBoxEnd={selectionBoxEnd}
             />
           </Canvas>
 

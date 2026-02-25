@@ -5,7 +5,8 @@
  */
 
 import React from 'react';
-import { CANVAS_CONFIG, type Point, type Section, type SnapResult, type AlignmentResult } from '@/types';
+import { CANVAS_CONFIG, type Point, type Section, type SnapResult, type AlignmentResult, type BoundingBox } from '@/types';
+import { getBoundingBox } from '@/utils/selection';
 
 const WORLD_CENTER = CANVAS_CONFIG.WORLD_SIZE / 2;
 
@@ -16,8 +17,12 @@ interface SVGRendererProps {
   svgUrl: string | null;
   /** 区域数组 */
   sections?: Section[];
-  /** 选中区域 ID */
+  /** 选中区域 ID（单选，向后兼容） */
   selectedSectionId?: string | null;
+  /** 选中区域 ID 集合（多选） */
+  selectedIds?: Set<string>;
+  /** 悬停区域 ID */
+  hoverElementId?: string | null;
   /** 是否正在绘制 */
   isDrawing?: boolean;
   /** 当前绘制的点 */
@@ -34,6 +39,20 @@ interface SVGRendererProps {
   showGrid?: boolean;
   /** 网格大小 */
   gridSize?: number;
+  /** 框选起点 */
+  selectionBoxStart?: Point | null;
+  /** 框选终点 */
+  selectionBoxEnd?: Point | null;
+  /** 是否正在旋转 */
+  isRotating?: boolean;
+  /** 当前旋转角度 */
+  rotationAngle?: number;
+  /** 旋转开始时的初始边界框 */
+  initialRotationBbox?: BoundingBox | null;
+  /** 旋转手柄悬停回调 */
+  onRotationHandleHover?: (isHovered: boolean) => void;
+  /** 是否正在拖拽元素 */
+  isDraggingElement?: boolean;
 }
 
 interface Seat {
@@ -69,23 +88,59 @@ const BackgroundLayer: React.FC<{ svgUrl: string | null }> = ({ svgUrl }) => {
 const SectionsLayer: React.FC<{
   sections: Section[];
   selectedSectionId: string | null;
+  selectedIds: Set<string>;
   scale: number;
-}> = ({ sections, selectedSectionId, scale }) => {
+}> = ({ sections, selectedSectionId, selectedIds, scale }) => {
   return (
     <g className="sections-layer">
-      {sections.map((section) => (
-        <g key={section.id}>
-          {/* 区域多边形 */}
-          <polygon
-            points={section.points.map((p) => `${p.x},${p.y}`).join(' ')}
-            fill={section.color}
-            fillOpacity={section.opacity}
-            stroke={selectedSectionId === section.id ? '#3b82f6' : section.color}
-            strokeWidth={selectedSectionId === section.id ? 3 / scale : 1 / scale}
-          />
-          {/* 区域标签 */}
-          <SectionLabel section={section} scale={scale} />
-        </g>
+      {sections.map((section) => {
+        // 支持多选和单选两种模式
+        const isSelected = selectedIds.has(section.id) || selectedSectionId === section.id;
+        return (
+          <g key={section.id}>
+            {/* 区域多边形 */}
+            <polygon
+              points={section.points.map((p) => `${p.x},${p.y}`).join(' ')}
+              fill={section.color}
+              fillOpacity={section.opacity}
+              stroke={isSelected ? '#3b82f6' : section.color}
+              strokeWidth={isSelected ? 3 / scale : 1 / scale}
+            />
+            {/* 选中时显示控制点 */}
+            {isSelected && (
+              <SelectionHandles section={section} scale={scale} />
+            )}
+            {/* 区域标签 */}
+            <SectionLabel section={section} scale={scale} />
+          </g>
+        );
+      })}
+    </g>
+  );
+};
+
+/**
+ * 选中控制点
+ */
+const SelectionHandles: React.FC<{
+  section: Section;
+  scale: number;
+}> = ({ section, scale }) => {
+  const handleRadius = 6 / scale;
+  const strokeWidth = 2 / scale;
+
+  return (
+    <g className="selection-handles">
+      {section.points.map((point, index) => (
+        <circle
+          key={index}
+          cx={point.x}
+          cy={point.y}
+          r={handleRadius}
+          fill="white"
+          stroke="#3b82f6"
+          strokeWidth={strokeWidth}
+        />
       ))}
     </g>
   );
@@ -491,6 +546,38 @@ const PolygonPreviewPoint: React.FC<{
 };
 
 /**
+ * 选择框图层
+ */
+const SelectionBoxLayer: React.FC<{
+  boxStart: Point | null;
+  boxEnd: Point | null;
+  scale: number;
+}> = ({ boxStart, boxEnd, scale }) => {
+  if (!boxStart || !boxEnd) return null;
+
+  const minX = Math.min(boxStart.x, boxEnd.x);
+  const maxX = Math.max(boxStart.x, boxEnd.x);
+  const minY = Math.min(boxStart.y, boxEnd.y);
+  const maxY = Math.max(boxStart.y, boxEnd.y);
+
+  return (
+    <g className="selection-box-layer">
+      {/* 选择框矩形 */}
+      <rect
+        x={minX}
+        y={minY}
+        width={maxX - minX}
+        height={maxY - minY}
+        fill="rgba(59, 130, 246, 0.1)"
+        stroke="#3b82f6"
+        strokeWidth={1 / scale}
+        strokeDasharray={`${4 / scale},${4 / scale}`}
+      />
+    </g>
+  );
+};
+
+/**
  * 网格图层 - 显示网格辅助线
  */
 const GridLayer: React.FC<{
@@ -537,13 +624,330 @@ const GridLayer: React.FC<{
 };
 
 /**
- * 覆盖图层 - 选中/悬停效果
+ * 计算多个边界框的整体边界框
  */
-const OverlayLayer: React.FC = () => {
+function getCombinedBoundingBox(bboxes: BoundingBox[]): BoundingBox | null {
+  if (bboxes.length === 0) return null;
+  if (bboxes.length === 1) return bboxes[0];
+
+  return {
+    minX: Math.min(...bboxes.map(b => b.minX)),
+    minY: Math.min(...bboxes.map(b => b.minY)),
+    maxX: Math.max(...bboxes.map(b => b.maxX)),
+    maxY: Math.max(...bboxes.map(b => b.maxY)),
+  };
+}
+
+/**
+ * 边界框图层 - 显示选中元素的边界框和旋转手柄
+ */
+const BoundingBoxLayer: React.FC<{
+  sections: Section[];
+  selectedIds: Set<string>;
+  scale: number;
+  isRotating?: boolean;
+  rotationAngle?: number;
+  initialRotationBbox?: BoundingBox | null;
+  onRotationHandleHover?: (isHovered: boolean) => void;
+}> = ({ sections, selectedIds, scale, isRotating, rotationAngle, initialRotationBbox, onRotationHandleHover }) => {
+  const selectedSections = sections.filter((s) => selectedIds.has(s.id));
+
+  if (selectedSections.length === 0) return null;
+
+  // 计算所有选中元素的边界框
+  const bboxes = selectedSections.map(s => getBoundingBox(s.points));
+  const currentBbox = getCombinedBoundingBox(bboxes);
+
+  if (!currentBbox) return null;
+
+  // 旋转过程中使用初始边界框，非旋转状态使用当前边界框
+  const displayBbox = (isRotating && initialRotationBbox) ? initialRotationBbox : currentBbox;
+
+  const width = displayBbox.maxX - displayBbox.minX;
+  const height = displayBbox.maxY - displayBbox.minY;
+  const centerX = (displayBbox.minX + displayBbox.maxX) / 2;
+  const centerY = (displayBbox.minY + displayBbox.maxY) / 2;
+  const handleY = displayBbox.minY - 20 / scale;
+
+  // 如果是多选，显示整体边界框；如果是单选，也使用相同的整体边界框逻辑
   return (
-    <g className="overlay-layer">
-      {/* 选中框占位 */}
-      {/* 悬停指示器占位 */}
+    <g className="bounding-box-layer" style={{ pointerEvents: 'none' }}>
+      {/* 旋转中的边界框组（带旋转变换） */}
+      {isRotating && rotationAngle !== undefined ? (
+        <g transform={`rotate(${rotationAngle}, ${centerX}, ${centerY})`}>
+          {/* 整体边界框矩形 */}
+          <rect
+            x={displayBbox.minX}
+            y={displayBbox.minY}
+            width={width}
+            height={height}
+            fill="none"
+            stroke="#3b82f6"
+            strokeWidth={1 / scale}
+            strokeDasharray={`${4 / scale},${2 / scale}`}
+            opacity={0.8}
+          />
+
+          {/* 旋转手柄连接线 */}
+          <line
+            x1={centerX}
+            y1={displayBbox.minY}
+            x2={centerX}
+            y2={handleY}
+            stroke="#3b82f6"
+            strokeWidth={1 / scale}
+          />
+
+          {/* 旋转手柄圆点 */}
+          <circle
+            cx={centerX}
+            cy={handleY}
+            r={6 / scale}
+            fill="#3b82f6"
+            stroke="white"
+            strokeWidth={2 / scale}
+            className="rotation-handle"
+            style={{ pointerEvents: 'auto', cursor: 'grabbing' }}
+            onMouseEnter={() => onRotationHandleHover?.(true)}
+            onMouseLeave={() => onRotationHandleHover?.(false)}
+          />
+
+          {/* 角度文本（在旋转手柄上方） */}
+          <text
+            x={centerX}
+            y={handleY - 15 / scale}
+            textAnchor="middle"
+            fontSize={12 / scale}
+            fill="#3b82f6"
+            fontWeight="bold"
+            style={{ pointerEvents: 'none', userSelect: 'none' }}
+          >
+            {Math.round(rotationAngle)}°
+          </text>
+        </g>
+      ) : (
+        /* 非旋转状态 - 正常显示 */
+        <>
+          {/* 整体边界框矩形 */}
+          <rect
+            x={displayBbox.minX}
+            y={displayBbox.minY}
+            width={width}
+            height={height}
+            fill="none"
+            stroke="#3b82f6"
+            strokeWidth={1 / scale}
+            strokeDasharray={`${4 / scale},${2 / scale}`}
+          />
+
+          {/* 旋转手柄连接线 */}
+          <line
+            x1={centerX}
+            y1={displayBbox.minY}
+            x2={centerX}
+            y2={handleY}
+            stroke="#3b82f6"
+            strokeWidth={1 / scale}
+          />
+
+          {/* 旋转手柄圆点 */}
+          <circle
+            cx={centerX}
+            cy={handleY}
+            r={6 / scale}
+            fill="#3b82f6"
+            stroke="white"
+            strokeWidth={2 / scale}
+            className="rotation-handle"
+            style={{ pointerEvents: 'auto', cursor: 'grab' }}
+            onMouseEnter={() => onRotationHandleHover?.(true)}
+            onMouseLeave={() => onRotationHandleHover?.(false)}
+          />
+
+          {/* 多选时显示每个元素的小边界框（仅用于视觉参考） */}
+          {selectedSections.length > 1 && bboxes.map((bbox, index) => (
+            <rect
+              key={index}
+              x={bbox.minX}
+              y={bbox.minY}
+              width={bbox.maxX - bbox.minX}
+              height={bbox.maxY - bbox.minY}
+              fill="none"
+              stroke="#3b82f6"
+              strokeWidth={0.5 / scale}
+              strokeDasharray={`${2 / scale},${2 / scale}`}
+              opacity={0.5}
+            />
+          ))}
+        </>
+      )}
+
+      {/* 旋转指示圆环和中心点（在旋转组之外，保持不旋转） */}
+      {isRotating && rotationAngle !== undefined && (
+        <g>
+          {/* 旋转指示圆环 */}
+          <circle
+            cx={centerX}
+            cy={centerY}
+            r={Math.max(width, height) / 2 + 30 / scale}
+            fill="none"
+            stroke="#3b82f6"
+            strokeWidth={1 / scale}
+            strokeDasharray={`${2 / scale},${4 / scale}`}
+            opacity={0.5}
+          />
+          {/* 旋转中心点 */}
+          <circle
+            cx={centerX}
+            cy={centerY}
+            r={4 / scale}
+            fill="#3b82f6"
+            stroke="white"
+            strokeWidth={2 / scale}
+          />
+        </g>
+      )}
+    </g>
+  );
+};
+
+/**
+ * 悬停高亮图层 - 显示鼠标悬停的元素
+ */
+const HoverHighlightLayer: React.FC<{
+  sections: Section[];
+  hoverElementId: string | null;
+  scale: number;
+}> = ({ sections, hoverElementId, scale }) => {
+  if (!hoverElementId) return null;
+
+  const hoverSection = sections.find((s) => s.id === hoverElementId);
+  if (!hoverSection) return null;
+
+  return (
+    <g className="hover-highlight-layer" style={{ pointerEvents: 'none' }}>
+      <polygon
+        points={hoverSection.points.map((p) => `${p.x},${p.y}`).join(' ')}
+        fill="none"
+        stroke="#60a5fa"
+        strokeWidth={2 / scale}
+        strokeDasharray={`${3 / scale},${3 / scale}`}
+        opacity={0.7}
+      />
+    </g>
+  );
+};
+
+/**
+ * 拖拽辅助线图层 - 显示选中元素的中心十字线和边界辅助线
+ */
+const DragGuideLayer: React.FC<{
+  sections: Section[];
+  selectedIds: Set<string>;
+  scale: number;
+  isDragging: boolean;
+}> = ({ sections, selectedIds, scale, isDragging }) => {
+  if (!isDragging || selectedIds.size === 0) return null;
+
+  const selectedSections = sections.filter((s) => selectedIds.has(s.id));
+  if (selectedSections.length === 0) return null;
+
+  // 计算所有选中元素的整体边界框
+  const bboxes = selectedSections.map(s => getBoundingBox(s.points));
+  const combinedBbox = getCombinedBoundingBox(bboxes);
+  if (!combinedBbox) return null;
+
+  const minX = combinedBbox.minX;
+  const maxX = combinedBbox.maxX;
+  const minY = combinedBbox.minY;
+  const maxY = combinedBbox.maxY;
+  const centerX = (minX + maxX) / 2;
+  const centerY = (minY + maxY) / 2;
+  const lineLength = 10000; // 辅助线延伸长度
+
+  return (
+    <g className="drag-guide-layer" style={{ pointerEvents: 'none' }}>
+      {/* 中心水平辅助线 */}
+      <line
+        x1={centerX - lineLength}
+        y1={centerY}
+        x2={centerX + lineLength}
+        y2={centerY}
+        stroke="#f59e0b"
+        strokeWidth={1 / scale}
+        strokeDasharray={`${4 / scale},${2 / scale}`}
+        opacity={0.8}
+      />
+
+      {/* 中心垂直辅助线 */}
+      <line
+        x1={centerX}
+        y1={centerY - lineLength}
+        x2={centerX}
+        y2={centerY + lineLength}
+        stroke="#f59e0b"
+        strokeWidth={1 / scale}
+        strokeDasharray={`${4 / scale},${2 / scale}`}
+        opacity={0.8}
+      />
+
+      {/* 边界水平辅助线 - 顶部 */}
+      <line
+        x1={minX - lineLength}
+        y1={minY}
+        x2={minX + lineLength}
+        y2={minY}
+        stroke="#f59e0b"
+        strokeWidth={0.5 / scale}
+        strokeDasharray={`${2 / scale},${2 / scale}`}
+        opacity={0.6}
+      />
+
+      {/* 边界水平辅助线 - 底部 */}
+      <line
+        x1={minX - lineLength}
+        y1={maxY}
+        x2={minX + lineLength}
+        y2={maxY}
+        stroke="#f59e0b"
+        strokeWidth={0.5 / scale}
+        strokeDasharray={`${2 / scale},${2 / scale}`}
+        opacity={0.6}
+      />
+
+      {/* 边界垂直辅助线 - 左侧 */}
+      <line
+        x1={minX}
+        y1={minY - lineLength}
+        x2={minX}
+        y2={minY + lineLength}
+        stroke="#f59e0b"
+        strokeWidth={0.5 / scale}
+        strokeDasharray={`${2 / scale},${2 / scale}`}
+        opacity={0.6}
+      />
+
+      {/* 边界垂直辅助线 - 右侧 */}
+      <line
+        x1={maxX}
+        y1={minY - lineLength}
+        x2={maxX}
+        y2={minY + lineLength}
+        stroke="#f59e0b"
+        strokeWidth={0.5 / scale}
+        strokeDasharray={`${2 / scale},${2 / scale}`}
+        opacity={0.6}
+      />
+
+      {/* 中心点标记 */}
+      <circle
+        cx={centerX}
+        cy={centerY}
+        r={4 / scale}
+        fill="#f59e0b"
+        stroke="white"
+        strokeWidth={1 / scale}
+      />
     </g>
   );
 };
@@ -559,6 +963,8 @@ export const SVGRenderer: React.FC<SVGRendererProps> = ({
   svgUrl,
   sections = [],
   selectedSectionId = null,
+  selectedIds = new Set(),
+  hoverElementId = null,
   isDrawing = false,
   drawingPoints = [],
   activeTool = 'select',
@@ -567,6 +973,13 @@ export const SVGRenderer: React.FC<SVGRendererProps> = ({
   showDimensions = true,
   showGrid = false,
   gridSize = 50,
+  selectionBoxStart = null,
+  selectionBoxEnd = null,
+  isRotating = false,
+  rotationAngle = 0,
+  initialRotationBbox = null,
+  onRotationHandleHover,
+  isDraggingElement = false,
 }) => {
   const isSnapped = snapResult?.type === 'vertex' || snapResult?.type === 'grid';
   const alignment = snapResult?.alignment;
@@ -597,6 +1010,7 @@ export const SVGRenderer: React.FC<SVGRendererProps> = ({
         <SectionsLayer
           sections={sections}
           selectedSectionId={selectedSectionId}
+          selectedIds={selectedIds}
           scale={scale}
         />
 
@@ -621,8 +1035,38 @@ export const SVGRenderer: React.FC<SVGRendererProps> = ({
           <DimensionLabel points={drawingPoints} scale={scale} />
         )}
 
-        {/* 覆盖层 */}
-        <OverlayLayer />
+        {/* 悬停高亮图层 */}
+        <HoverHighlightLayer
+          sections={sections}
+          hoverElementId={hoverElementId}
+          scale={scale}
+        />
+
+        {/* 拖拽辅助线图层 - 拖拽选中元素时显示中心十字线和边界辅助线 */}
+        <DragGuideLayer
+          sections={sections}
+          selectedIds={selectedIds}
+          scale={scale}
+          isDragging={isDraggingElement}
+        />
+
+        {/* 边界框图层 - 显示选中元素的边界框和旋转手柄 */}
+        <BoundingBoxLayer
+          sections={sections}
+          selectedIds={selectedIds}
+          scale={scale}
+          isRotating={isRotating}
+          rotationAngle={rotationAngle}
+          initialRotationBbox={initialRotationBbox}
+          onRotationHandleHover={onRotationHandleHover}
+        />
+
+        {/* 选择框图层 */}
+        <SelectionBoxLayer
+          boxStart={selectionBoxStart}
+          boxEnd={selectionBoxEnd}
+          scale={scale}
+        />
 
         {/* 光标辅助线层 - 矩形/多边形绘制时显示 */}
         {(activeTool === 'section' || activeTool === 'polygon') && isDrawing && (

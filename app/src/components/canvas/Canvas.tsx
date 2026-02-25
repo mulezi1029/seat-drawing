@@ -16,8 +16,9 @@ import React, {
   forwardRef,
   useImperativeHandle,
 } from 'react';
-import { CANVAS_CONFIG, type Point, type SnapResult } from '@/types';
-import { screenToWorld, createRectanglePoints, getDistance, findSnapPoint, findAlignment } from '@/utils/coordinate';
+import { CANVAS_CONFIG, type Point, type SnapResult, type Section, type BoundingBox } from '@/types';
+import { screenToWorld, createRectanglePoints, getDistance, findSnapPoint, findAlignment, getAngle, rotatePolygon } from '@/utils/coordinate';
+import { findElementAtPoint, findElementsInBox, createSelectionBox, getBoundingBox } from '@/utils/selection';
 
 /** Canvas 组件属性 */
 export interface CanvasProps {
@@ -61,13 +62,36 @@ export interface CanvasProps {
   onShiftPressedChange?: (pressed: boolean) => void;
   /** Ctrl 键状态变化回调 */
   onCtrlPressedChange?: (pressed: boolean) => void;
+  /** 所有区域（用于选择） */
+  sections?: Section[];
+  /** 选中区域 ID 集合 */
+  selectedIds?: Set<string>;
+  /** 选中状态变化回调 */
+  onSelectionChange?: (selectedIds: Set<string>) => void;
+  /** 框选状态变化回调 */
+  onSelectionBoxChange?: (start: Point | null, end: Point | null) => void;
+  /** 元素移动回调 - 实时预览 */
+  onElementsMove?: (ids: Set<string>, dx: number, dy: number) => void;
+  /** 元素移动结束回调 */
+  onElementsMoveEnd?: () => void;
+  /** 元素旋转回调 - 实时预览
+   * @param ids 旋转的元素ID集合
+   * @param center 旋转中心
+   * @param angle 旋转角度（相对于起始位置的增量）
+   * @param originalSections 旋转开始时的原始section数据（避免累积旋转）
+   */
+  onElementsRotate?: (ids: Set<string>, center: Point, angle: number, originalSections: Section[]) => void;
+  /** 元素旋转结束回调 */
+  onElementsRotateEnd?: () => void;
+  /** 旋转手柄悬停回调 */
+  onRotationHandleHover?: (isHovered: boolean) => void;
 }
 
 /**
  * 画布组件 - 支持区域绘制
  */
 export const Canvas = forwardRef<HTMLDivElement, CanvasProps>(
-  ({ scale, offsetX, offsetY, isSpacePressed, activeTool, onScaleChange, onOffsetChange, children, isDrawing: externalIsDrawing, drawingPoints: externalDrawingPoints, onDrawingPointsChange, onDrawingComplete, onDrawingStateChange, allVertices = [], showGrid = false, gridSize = 50, onMousePositionChange, onSnapResultChange, onShiftPressedChange, onCtrlPressedChange }, ref) => {
+  ({ scale, offsetX, offsetY, isSpacePressed, activeTool, onScaleChange, onOffsetChange, children, isDrawing: externalIsDrawing, drawingPoints: externalDrawingPoints, onDrawingPointsChange, onDrawingComplete, onDrawingStateChange, allVertices = [], showGrid = false, gridSize = 50, onMousePositionChange, onSnapResultChange, onShiftPressedChange, onCtrlPressedChange, sections = [], selectedIds: externalSelectedIds, onSelectionChange, onSelectionBoxChange, onElementsMove, onElementsMoveEnd, onElementsRotate, onElementsRotateEnd, onRotationHandleHover }, ref) => {
     const containerRef = useRef<HTMLDivElement>(null);
 
     // 暴露容器引用
@@ -119,18 +143,84 @@ export const Canvas = forwardRef<HTMLDivElement, CanvasProps>(
     const [_mousePosition, setMousePosition] = useState<Point | null>(null);
     const [_snapResult, setSnapResult] = useState<SnapResult | null>(null);
 
+    // ===== 选择工具状态 =====
+    const [internalSelectedIds, setInternalSelectedIds] = useState<Set<string>>(new Set());
+    const selectedIds = externalSelectedIds ?? internalSelectedIds;
+    const setSelectedIds = useCallback((ids: Set<string> | ((prev: Set<string>) => Set<string>)) => {
+      if (typeof ids === 'function') {
+        // 处理回调函数形式
+        if (externalSelectedIds === undefined) {
+          setInternalSelectedIds(prev => {
+            const newIds = ids(prev);
+            onSelectionChange?.(newIds);
+            return newIds;
+          });
+        } else {
+          const newIds = ids(externalSelectedIds);
+          onSelectionChange?.(newIds);
+        }
+      } else {
+        // 处理直接值形式
+        if (externalSelectedIds === undefined) {
+          setInternalSelectedIds(ids);
+        }
+        onSelectionChange?.(ids);
+      }
+    }, [externalSelectedIds, onSelectionChange]);
+
+    const isBoxSelectingRef = useRef(false);
+    const boxStartRef = useRef<Point | null>(null);
+    const boxEndRef = useRef<Point | null>(null);
+
+    // ===== 元素拖拽状态 =====
+    const isDraggingElementRef = useRef(false);
+    const dragStartPointRef = useRef<Point | null>(null);
+    const dragElementIdsRef = useRef<Set<string>>(new Set());
+    const [isDraggingElement, setIsDraggingElement] = useState(false);
+    const [hoverElementId, setHoverElementId] = useState<string | null>(null);
+
+    // ===== 旋转状态 =====
+    const isRotatingRef = useRef(false);
+    const rotationCenterRef = useRef<Point | null>(null);
+    const rotationStartAngleRef = useRef<number>(0);
+    const rotationCurrentAngleRef = useRef<number>(0);
+    const rotationElementIdsRef = useRef<Set<string>>(new Set());
+    const [isHoveringRotationHandle, setIsHoveringRotationHandle] = useState(false);
+    const [rotationAngle, setRotationAngle] = useState<number>(0);
+    const [isRotating, setIsRotating] = useState(false);
+    // 旋转开始时的初始边界框（用于旋转过程中显示参考）
+    const [initialRotationBbox, setInitialRotationBbox] = useState<BoundingBox | null>(null);
+    // 旋转开始时保存的原始 section 数据（避免累积旋转）
+    const originalSectionsRef = useRef<Section[]>([]);
+
     // 更新光标样式
     useEffect(() => {
       if (isPanningRef.current) {
+        setCursorStyle('grabbing');
+      } else if (isDraggingElementRef.current) {
+        setCursorStyle('grabbing');
+      } else if (isRotatingRef.current) {
         setCursorStyle('grabbing');
       } else if (isSpacePressed || isHandToolActive) {
         setCursorStyle('grab');
       } else if (activeTool === 'section' || activeTool === 'polygon') {
         setCursorStyle('crosshair');
+      } else if (activeTool === 'select') {
+        if (isBoxSelectingRef.current) {
+          setCursorStyle('crosshair');
+        } else if (isHoveringRotationHandle) {
+          setCursorStyle('grab');
+        } else if (hoverElementId && selectedIds.has(hoverElementId)) {
+          setCursorStyle('grab');
+        } else if (hoverElementId) {
+          setCursorStyle('move');
+        } else {
+          setCursorStyle('default');
+        }
       } else {
         setCursorStyle('default');
       }
-    }, [isSpacePressed, isHandToolActive, activeTool]);
+    }, [isSpacePressed, isHandToolActive, activeTool, hoverElementId, selectedIds, isHoveringRotationHandle]);
 
     // ===== 鼠标事件处理 =====
 
@@ -215,8 +305,102 @@ export const Canvas = forwardRef<HTMLDivElement, CanvasProps>(
             lastClickPointRef.current = worldPoint;
           }
         }
+
+        // 选择工具模式
+        if (activeTool === 'select') {
+          if (!containerRef.current) return;
+
+          const containerRect = containerRef.current.getBoundingClientRect();
+          const worldPoint = screenToWorld(
+            e.clientX,
+            e.clientY,
+            containerRect,
+            offsetX,
+            offsetY,
+            scale
+          );
+
+          // 如果有选中元素，检测是否点击了旋转手柄
+          if (selectedIds.size > 0) {
+            const selectedSections = sections.filter((s) => selectedIds.has(s.id));
+            if (selectedSections.length > 0) {
+              // 计算整体边界框的中心和旋转手柄位置
+              const bboxes = selectedSections.map(s => getBoundingBox(s.points));
+              const minX = Math.min(...bboxes.map(b => b.minX));
+              const minY = Math.min(...bboxes.map(b => b.minY));
+              const maxX = Math.max(...bboxes.map(b => b.maxX));
+              const maxY = Math.max(...bboxes.map(b => b.maxY));
+              const centerX = (minX + maxX) / 2;
+              const handleY = minY - 20 / scale;
+              const handleCenter = { x: centerX, y: handleY };
+
+              // 检测点击旋转手柄（圆形区域，半径为 8px）
+              const handleRadius = 8 / scale;
+              const distanceToHandle = getDistance(worldPoint, handleCenter);
+
+              if (distanceToHandle <= handleRadius) {
+                // 点击了旋转手柄 - 开始旋转
+                isRotatingRef.current = true;
+                rotationCenterRef.current = { x: centerX, y: (minY + maxY) / 2 };
+                rotationStartAngleRef.current = getAngle(rotationCenterRef.current, worldPoint);
+                rotationCurrentAngleRef.current = 0;
+                rotationElementIdsRef.current = new Set(selectedIds);
+                // 记录旋转开始时的初始边界框和原始 section 数据
+                setInitialRotationBbox({ minX, minY, maxX, maxY });
+                originalSectionsRef.current = sections.map(s => ({ ...s, points: [...s.points] }));
+                setIsRotating(true);
+                setRotationAngle(0);
+                return;
+              }
+            }
+          }
+
+          // 检测点击的元素
+          const clickedId = findElementAtPoint(worldPoint, sections);
+
+          if (clickedId) {
+            // 点击了元素
+            if (selectedIds.has(clickedId)) {
+              // 点击已选中元素 - 开始拖拽
+              isDraggingElementRef.current = true;
+              setIsDraggingElement(true);
+              dragStartPointRef.current = worldPoint;
+              dragElementIdsRef.current = new Set(selectedIds);
+              return;
+            } else {
+              // 点击未选中元素
+              if (e.ctrlKey || e.metaKey) {
+                // Ctrl/Cmd + 点击 - 添加到选择
+                setSelectedIds(prev => {
+                  const newSet = new Set(prev);
+                  newSet.add(clickedId);
+                  return newSet;
+                });
+              } else {
+                // 单选模式 - 选中该元素
+                setSelectedIds(new Set([clickedId]));
+              }
+              // 开始拖拽新选中的元素
+              isDraggingElementRef.current = true;
+              setIsDraggingElement(true);
+              dragStartPointRef.current = worldPoint;
+              dragElementIdsRef.current = new Set([clickedId]);
+              return;
+            }
+          }
+
+          // 点击空白处 - 开始框选
+          boxStartRef.current = worldPoint;
+          boxEndRef.current = worldPoint;
+          isBoxSelectingRef.current = true;
+
+          // 如果不是 Ctrl/Cmd 多选模式，清空当前选择
+          if (!e.ctrlKey && !e.metaKey) {
+            setSelectedIds(new Set());
+          }
+        }
       },
-      [shouldPan, activeTool, isDrawing, drawingPoints, offsetX, offsetY, scale, setIsDrawing, setDrawingPoints, onDrawingComplete]
+      [shouldPan, activeTool, isDrawing, drawingPoints, offsetX, offsetY, scale, setIsDrawing, setDrawingPoints, onDrawingComplete, setSelectedIds, selectedIds, sections]
     );
 
     /**
@@ -268,11 +452,55 @@ export const Canvas = forwardRef<HTMLDivElement, CanvasProps>(
           return;
         }
 
-        // 更新鼠标位置并计算吸附
-        if (containerRef.current && (activeTool === 'section' || activeTool === 'polygon')) {
-          const containerRect = containerRef.current.getBoundingClientRect();
-          const worldPoint = screenToWorld(e.clientX, e.clientY, containerRect, offsetX, offsetY, scale);
+        if (!containerRef.current) return;
+        const containerRect = containerRef.current.getBoundingClientRect();
+        const worldPoint = screenToWorld(e.clientX, e.clientY, containerRect, offsetX, offsetY, scale);
 
+        // 元素拖拽中 - 更新位置
+        if (isDraggingElementRef.current && dragStartPointRef.current && dragElementIdsRef.current.size > 0) {
+          const dx = worldPoint.x - dragStartPointRef.current.x;
+          const dy = worldPoint.y - dragStartPointRef.current.y;
+
+          // 触发元素移动事件
+          onElementsMove?.(dragElementIdsRef.current, dx, dy);
+
+          // 更新拖拽起点为当前点，用于下一次增量计算
+          dragStartPointRef.current = worldPoint;
+          return;
+        }
+
+        // 旋转中 - 更新旋转角度
+        if (isRotatingRef.current && rotationCenterRef.current) {
+          const currentAngle = getAngle(rotationCenterRef.current, worldPoint);
+          const deltaAngle = currentAngle - rotationStartAngleRef.current;
+
+          // 更新当前旋转角度（累积）
+          rotationCurrentAngleRef.current = deltaAngle;
+          setRotationAngle(deltaAngle);
+
+          // 触发旋转事件，传递原始 section 数据避免累积旋转
+          onElementsRotate?.(rotationElementIdsRef.current, rotationCenterRef.current, deltaAngle, originalSectionsRef.current);
+          return;
+        }
+
+        // 选择工具框选更新
+        if (activeTool === 'select' && isBoxSelectingRef.current && boxStartRef.current) {
+          boxEndRef.current = worldPoint;
+          // 触发框选更新回调
+          onSelectionBoxChange?.(boxStartRef.current, worldPoint);
+          return;
+        }
+
+        // 选择工具：检测悬停元素
+        if (activeTool === 'select' && !isDrawing && !isBoxSelectingRef.current) {
+          const hoveredId = findElementAtPoint(worldPoint, sections);
+          if (hoveredId !== hoverElementId) {
+            setHoverElementId(hoveredId);
+          }
+        }
+
+        // 更新鼠标位置并计算吸附
+        if (activeTool === 'section' || activeTool === 'polygon') {
           // 计算吸附点
           const lastPoint = drawingPoints.length > 0 ? drawingPoints[drawingPoints.length - 1] : null;
           const snap = findSnapPoint(worldPoint, {
@@ -331,6 +559,8 @@ export const Canvas = forwardRef<HTMLDivElement, CanvasProps>(
         onMousePositionChange,
         onSnapResultChange,
         calculateConstrainedRectPoints,
+        hoverElementId,
+        sections,
       ]
     );
 
@@ -352,6 +582,30 @@ export const Canvas = forwardRef<HTMLDivElement, CanvasProps>(
         }
       }
 
+      // 元素拖拽结束
+      if (isDraggingElementRef.current) {
+        isDraggingElementRef.current = false;
+        setIsDraggingElement(false);
+        dragStartPointRef.current = null;
+        dragElementIdsRef.current = new Set();
+        onElementsMoveEnd?.();
+      }
+
+      // 旋转结束
+      if (isRotatingRef.current) {
+        isRotatingRef.current = false;
+        rotationCenterRef.current = null;
+        rotationStartAngleRef.current = 0;
+        rotationCurrentAngleRef.current = 0;
+        rotationElementIdsRef.current = new Set();
+        originalSectionsRef.current = []; // 清除原始数据
+        setIsRotating(false);
+        setRotationAngle(0);
+        // 清除初始边界框，让边界框根据旋转后的元素重新计算
+        setInitialRotationBbox(null);
+        onElementsRotateEnd?.();
+      }
+
       // 矩形绘制完成
       if (isDrawing && activeTool === 'section') {
         if (drawingPoints.length >= 4) {
@@ -361,7 +615,27 @@ export const Canvas = forwardRef<HTMLDivElement, CanvasProps>(
         setDrawingPoints([]);
         rectStartPointRef.current = null;
       }
-    }, [isSpacePressed, isHandToolActive, activeTool, isDrawing, drawingPoints, setIsDrawing, setDrawingPoints, onDrawingComplete]);
+
+      // 选择工具完成选择
+      if (activeTool === 'select' && isBoxSelectingRef.current) {
+        if (boxStartRef.current && boxEndRef.current) {
+          const selectionBox = createSelectionBox(boxStartRef.current, boxEndRef.current);
+
+          // 框选：找到与选择框相交的元素
+          const selected = findElementsInBox(selectionBox, sections);
+          setSelectedIds(prev => {
+            const newSet = new Set(prev);
+            selected.forEach(id => newSet.add(id));
+            return newSet;
+          });
+        }
+
+        isBoxSelectingRef.current = false;
+        boxStartRef.current = null;
+        boxEndRef.current = null;
+        onSelectionBoxChange?.(null, null);
+      }
+    }, [isSpacePressed, isHandToolActive, activeTool, isDrawing, drawingPoints, setIsDrawing, setDrawingPoints, onDrawingComplete, sections, setSelectedIds, onSelectionBoxChange, onElementsMoveEnd]);
 
     // 滚轮移动优化：使用 ref 标记滚轮操作中，跳过状态同步
     const isWheelingRef = useRef(false);
@@ -479,20 +753,37 @@ export const Canvas = forwardRef<HTMLDivElement, CanvasProps>(
 
     /**
      * 键盘事件处理
-     * - ESC: 取消绘制
+     * - ESC: 取消绘制/清除选择
      * - Shift: 约束模式（正方形/角度）
      * - Ctrl/Cmd: 中心绘制模式
      * - Backspace: 删除上一个顶点（多边形模式）
+     * - Ctrl+A: 全选
+     * - Delete: 删除选中元素
      */
     useEffect(() => {
       const handleKeyDown = (e: KeyboardEvent) => {
-        // ESC 取消绘制
-        if (e.key === 'Escape' && isDrawing) {
-          e.preventDefault();
-          setIsDrawing(false);
-          setDrawingPoints([]);
-          rectStartPointRef.current = null;
+        // ESC 取消绘制或清除选择
+        if (e.key === 'Escape') {
+          if (isDrawing) {
+            e.preventDefault();
+            setIsDrawing(false);
+            setDrawingPoints([]);
+            rectStartPointRef.current = null;
+          } else if (selectedIds.size > 0) {
+            e.preventDefault();
+            setSelectedIds(new Set());
+          }
         }
+
+        // Ctrl+A 全选
+        if ((e.key === 'a' || e.key === 'A') && (e.ctrlKey || e.metaKey)) {
+          e.preventDefault();
+          const allIds = new Set(sections.map(s => s.id));
+          setSelectedIds(allIds);
+        }
+
+        // Note: Delete 删除选中元素由父组件 App.tsx 处理
+        // Canvas 只负责清空选择状态，不处理实际的 sections 删除
 
         // Shift 键按下
         if (e.key === 'Shift' && !isShiftPressed) {
@@ -538,7 +829,7 @@ export const Canvas = forwardRef<HTMLDivElement, CanvasProps>(
         window.removeEventListener('keydown', handleKeyDown);
         window.removeEventListener('keyup', handleKeyUp);
       };
-    }, [isDrawing, activeTool, drawingPoints, isShiftPressed, isCtrlPressed, setIsDrawing, setDrawingPoints, onShiftPressedChange, onCtrlPressedChange]);
+    }, [isDrawing, activeTool, drawingPoints, isShiftPressed, isCtrlPressed, selectedIds, sections, setIsDrawing, setDrawingPoints, setSelectedIds, onShiftPressedChange, onCtrlPressedChange, onSelectionChange]);
 
     /**
      * 右键取消绘制
@@ -579,7 +870,24 @@ export const Canvas = forwardRef<HTMLDivElement, CanvasProps>(
           tabIndex={-1}
         >
           {/* SVG 渲染内容 - 绝对定位覆盖整个容器 */}
-          {children}
+          {/* Clone children to pass props */}
+          {React.Children.map(children, child =>
+            React.isValidElement(child)
+              ? React.cloneElement(child, {
+                  hoverElementId,
+                  isRotating,
+                  rotationAngle,
+                  initialRotationBbox,
+                  isDraggingElement,
+                  selectedIds,
+                  sections,
+                  onRotationHandleHover: (isHovered: boolean) => {
+                    setIsHoveringRotationHandle(isHovered);
+                    onRotationHandleHover?.(isHovered);
+                  },
+                } as Record<string, unknown>)
+              : child
+          )}
         </div>
       </div>
     );

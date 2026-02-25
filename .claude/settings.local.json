@@ -38,7 +38,8 @@
       "Bash(unalias:*)",
       "Bash(command:*)",
       "Bash(/usr/local/bin/npm run build)",
-      "Bash(PATH=\"/usr/local/bin:$PATH\" npx tsc:*)"
+      "Bash(PATH=\"/usr/local/bin:$PATH\" npx tsc:*)",
+      "Bash(env -i PATH=/usr/local/bin:/usr/bin:/bin:/opt/homebrew/bin HOME=$HOME /usr/local/bin/node:*)"
     ]
   }
 }
