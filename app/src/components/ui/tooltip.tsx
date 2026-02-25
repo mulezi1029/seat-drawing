@@ -50,25 +50,9 @@ const TooltipContent = React.forwardRef<
 ));
 TooltipContent.displayName = TooltipPrimitive.Content.displayName;
 
-/**
- * TooltipArrow - 箭头指示器
- */
-const TooltipArrow = React.forwardRef<
-  React.ElementRef<typeof TooltipPrimitive.Arrow>,
-  React.ComponentPropsWithoutRef<typeof TooltipPrimitive.Arrow>
->(({ className, ...props }, ref) => (
-  <TooltipPrimitive.Arrow
-    ref={ref}
-    className={cn('fill-slate-900', className)}
-    {...props}
-  />
-));
-TooltipArrow.displayName = TooltipPrimitive.Arrow.displayName;
-
 export {
   Tooltip,
   TooltipTrigger,
   TooltipContent,
   TooltipProvider,
-  TooltipArrow,
 };

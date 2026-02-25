@@ -5,7 +5,14 @@
  */
 
 import React from 'react';
-import { Settings, ChevronRight } from 'lucide-react';
+import { Settings, ChevronRight, Grid3x3 } from 'lucide-react';
+
+interface PanelRightProps {
+  showGrid?: boolean;
+  onShowGridChange?: (show: boolean) => void;
+  gridSize?: number;
+  onGridSizeChange?: (size: number) => void;
+}
 
 interface InspectorSheetProps {
   title: string;
@@ -38,9 +45,46 @@ const InputRow: React.FC<InputRowProps> = ({ label, value }) => (
   </div>
 );
 
-export const PanelRight: React.FC = () => {
+export const PanelRight: React.FC<PanelRightProps> = ({
+  showGrid = false,
+  onShowGridChange,
+  gridSize = 50,
+  onGridSizeChange,
+}) => {
   return (
     <div tabIndex={-1} className="w-72 bg-white border-l flex flex-col overflow-y-auto focus:outline-none">
+      {/* Grid Settings Panel */}
+      <InspectorSheet title="Grid Settings">
+        <div className="flex items-center justify-between">
+          <div className="flex items-center gap-2">
+            <Grid3x3 className="w-4 h-4 text-gray-500" />
+            <span className="text-sm text-gray-600">Show Grid</span>
+          </div>
+          <input
+            tabIndex={-1}
+            type="checkbox"
+            checked={showGrid}
+            onChange={(e) => onShowGridChange?.(e.target.checked)}
+            className="rounded"
+          />
+        </div>
+        {showGrid && (
+          <div className="flex items-center justify-between">
+            <span className="text-sm text-gray-600">Grid Size</span>
+            <select
+              tabIndex={-1}
+              value={gridSize}
+              onChange={(e) => onGridSizeChange?.(Number(e.target.value))}
+              className="w-20 px-2 py-1 text-sm border rounded"
+            >
+              <option value={10}>10px</option>
+              <option value={50}>50px</option>
+              <option value={100}>100px</option>
+            </select>
+          </div>
+        )}
+      </InspectorSheet>
+
       {/* Section Panel */}
       <InspectorSheet title="Section">
         <button tabIndex={-1} onMouseDown={(e) => e.preventDefault()} className="flex items-center gap-2 text-sm text-blue-600 hover:text-blue-700 focus:outline-none">

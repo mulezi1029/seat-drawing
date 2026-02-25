@@ -104,18 +104,18 @@ export const PanelLeft: React.FC<PanelLeftProps> = ({ activeTool, onToolChange }
 
       {/* 绘制工具组 */}
       <ToolButton
-        icon={<Focus className="w-5 h-5" />}
-        tooltip="Focal point tool"
-        shortcut="F"
-        active={activeTool === 'focal'}
-        onClick={() => onToolChange('focal')}
-      />
-      <ToolButton
         icon={<Square className="w-5 h-5" />}
         tooltip="Rectangular Section tool"
         shortcut="S"
         active={activeTool === 'section'}
         onClick={() => onToolChange('section')}
+        />
+      <ToolButton
+        icon={<Hexagon className="w-5 h-5" />}
+        tooltip="Polygon tool"
+        shortcut="P"
+        active={activeTool === 'polygon'}
+        onClick={() => onToolChange('polygon')}
       />
       <ToolButton
         icon={<CircleDot className="w-5 h-5" />}
@@ -132,13 +132,12 @@ export const PanelLeft: React.FC<PanelLeftProps> = ({ activeTool, onToolChange }
         onClick={() => onToolChange('area')}
       />
       <ToolButton
-        icon={<Hexagon className="w-5 h-5" />}
-        tooltip="Polygon tool"
-        shortcut="P"
-        active={activeTool === 'polygon'}
-        onClick={() => onToolChange('polygon')}
+        icon={<Focus className="w-5 h-5" />}
+        tooltip="Focal point tool"
+        shortcut="F"
+        active={activeTool === 'focal'}
+        onClick={() => onToolChange('focal')}
       />
-
       <div className="w-8 h-px bg-gray-200 my-1" />
 
       {/* 座位工具组 */}

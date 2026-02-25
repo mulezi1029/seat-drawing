@@ -181,7 +181,7 @@ export const FloatingControls: React.FC<FloatingControlsProps> = (props) => {
   return (
     <>
       <NavigationHUD {...props} />
-      {/* <FloorPicker /> */}
+      <FloorPicker />
       <StatusBar />
     </>
   );

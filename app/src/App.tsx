@@ -19,6 +19,7 @@ import { PanelRight } from '@/components/panels/PanelRight';
 import { FloatingControls } from '@/components/panels/FloatingControls';
 import { Button } from '@/components/ui/button';
 import { Upload } from 'lucide-react';
+import { type Section, type Point, type SnapResult, DEFAULT_SECTION_COLORS } from '@/types';
 
 import './App.css';
 
@@ -47,6 +48,23 @@ function App() {
   const [previousTool, setPreviousTool] = useState('select');
   const [isSpacePressed, setIsSpacePressed] = useState(false);
 
+  // ===== 区域绘制状态 =====
+  const [sections, setSections] = useState<Section[]>([]);
+  const [isDrawing, setIsDrawing] = useState(false);
+  const [drawingPoints, setDrawingPoints] = useState<Point[]>([]);
+  const [selectedSectionId, setSelectedSectionId] = useState<string | null>(null);
+
+  // ===== 绘制辅助状态 =====
+  const [mousePosition, setMousePosition] = useState<Point | null>(null);
+  const [snapResult, setSnapResult] = useState<SnapResult | null>(null);
+  const [_isShiftPressed, setIsShiftPressed] = useState(false);
+  const [_isCtrlPressed, setIsCtrlPressed] = useState(false);
+  const [showGrid, setShowGrid] = useState(false);
+  const [gridSize, setGridSize] = useState(50);
+
+  // 收集所有已有顶点用于吸附
+  const allVertices = sections.flatMap(s => s.points);
+
   // Canvas 容器引用 - 用于获取实际滚动位置
   const canvasContainerRef = useRef<HTMLDivElement>(null);
 
@@ -55,7 +73,41 @@ function App() {
    */
   const handleToolChange = useCallback((tool: string) => {
     setActiveTool(tool);
+    // 切换到非绘制工具时，取消当前绘制
+    if (tool !== 'section' && tool !== 'polygon' && isDrawing) {
+      setIsDrawing(false);
+      setDrawingPoints([]);
+    }
+  }, [isDrawing]);
+
+  /**
+   * 生成唯一 ID
+   */
+  const generateId = useCallback(() => {
+    return `section-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
   }, []);
+
+  /**
+   * 处理绘制完成
+   */
+  const handleDrawingComplete = useCallback((points: Point[]) => {
+    if (points.length < 3) return; // 至少需要3个点
+
+    const newSection: Section = {
+      id: generateId(),
+      name: `区域 ${String.fromCharCode(65 + sections.length)}`,
+      points,
+      color: DEFAULT_SECTION_COLORS[sections.length % DEFAULT_SECTION_COLORS.length],
+      seats: [],
+      opacity: 0.3,
+    };
+
+    setSections(prev => [...prev, newSection]);
+    setSelectedSectionId(newSection.id);
+    setIsDrawing(false);
+    setDrawingPoints([]);
+    setActiveTool('select'); // 绘制完成后切换回选择工具
+  }, [sections.length, generateId]);
 
   /**
    * 空格键处理：临时切换到 hand 工具
@@ -188,9 +240,34 @@ function App() {
             activeTool={activeTool}
             onScaleChange={handleScaleChange}
             onOffsetChange={handleOffsetChange}
+            isDrawing={isDrawing}
+            drawingPoints={drawingPoints}
+            onDrawingPointsChange={setDrawingPoints}
+            onDrawingComplete={handleDrawingComplete}
+            onDrawingStateChange={setIsDrawing}
+            allVertices={allVertices}
+            showGrid={showGrid}
+            gridSize={gridSize}
+            onMousePositionChange={setMousePosition}
+            onSnapResultChange={setSnapResult}
+            onShiftPressedChange={setIsShiftPressed}
+            onCtrlPressedChange={setIsCtrlPressed}
           >
             {/* SVG 渲染内容 */}
-            <SVGRenderer scale={scale} svgUrl={svgUrl} />
+            <SVGRenderer
+              scale={scale}
+              svgUrl={svgUrl}
+              sections={sections}
+              selectedSectionId={selectedSectionId}
+              isDrawing={isDrawing}
+              drawingPoints={drawingPoints}
+              activeTool={activeTool}
+              mousePosition={mousePosition}
+              snapResult={snapResult}
+              showDimensions={activeTool === 'section'}
+              showGrid={showGrid}
+              gridSize={gridSize}
+            />
           </Canvas>
 
           {/* 空状态提示 */}
@@ -225,7 +302,12 @@ function App() {
         </div>
 
         {/* 右侧属性面板 */}
-        <PanelRight />
+        <PanelRight
+          showGrid={showGrid}
+          onShowGridChange={setShowGrid}
+          gridSize={gridSize}
+          onGridSizeChange={setGridSize}
+        />
       </div>
     </div>
   );

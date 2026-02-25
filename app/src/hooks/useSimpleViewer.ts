@@ -55,7 +55,7 @@ export interface UseSimpleViewerReturn extends SimpleViewerState, SimpleViewerAc
 }
 
 /** 默认缩放步长 (3% 步长，提供更精细的缩放控制) */
-const ZOOM_STEP = 1.03;
+const ZOOM_STEP = 1.25;
 
 /** 最小/最大缩放限制 */
 const MIN_ZOOM = CANVAS_CONFIG.MIN_ZOOM;

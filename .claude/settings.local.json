@@ -23,7 +23,22 @@
       "Bash(mkdir:*)",
       "Bash(pnpm run build:*)",
       "Bash(bash:*)",
-      "Bash(PATH=/usr/local/bin:/usr/bin:/bin:/opt/homebrew/bin)"
+      "Bash(PATH=/usr/local/bin:/usr/bin:/bin:/opt/homebrew/bin)",
+      "Bash(git -C /Users/cy/Downloads/座位绘制功能 show HEAD~4:app/src/tools/SelectTool.ts)",
+      "Bash(git -C /Users/cy/Downloads/座位绘制功能 show:*)",
+      "Bash(npm run)",
+      "Bash(ESLINT_USE_FLAT_CONFIG=true /Users/cy/Downloads/座位绘制功能/app/node_modules/.bin/eslint:*)",
+      "Bash(HOME=/Users/cy /Users/cy/Downloads/座位绘制功能/app/node_modules/.bin/eslint:*)",
+      "Bash(PWD=/Users/cy/Downloads/座位绘制功能/app /Users/cy/Downloads/座位绘制功能/app/node_modules/.bin/eslint:*)",
+      "Bash(app/node_modules/.bin/tsc:*)",
+      "Bash(echo:*)",
+      "Bash(/opt/homebrew/bin/npx tsc:*)",
+      "Bash(source:*)",
+      "Bash(export:*)",
+      "Bash(unalias:*)",
+      "Bash(command:*)",
+      "Bash(/usr/local/bin/npm run build)",
+      "Bash(PATH=\"/usr/local/bin:$PATH\" npx tsc:*)"
     ]
   }
 }
