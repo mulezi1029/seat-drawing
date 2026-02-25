@@ -41,7 +41,8 @@ export const NavigationHUD: React.FC<NavigationHUDProps> = ({
         <button
           tabIndex={-1}
           onClick={onPanUp}
-          className="absolute top-1 left-1/2 -translate-x-1/2 p-1 hover:bg-gray-100 rounded"
+          onMouseDown={(e) => e.preventDefault()}
+          className="absolute top-1 left-1/2 -translate-x-1/2 p-1 hover:bg-gray-100 rounded focus:outline-none"
         >
           <ArrowUp className="w-3 h-3 text-gray-500" />
         </button>
@@ -49,7 +50,8 @@ export const NavigationHUD: React.FC<NavigationHUDProps> = ({
         <button
           tabIndex={-1}
           onClick={onPanDown}
-          className="absolute bottom-1 left-1/2 -translate-x-1/2 p-1 hover:bg-gray-100 rounded"
+          onMouseDown={(e) => e.preventDefault()}
+          className="absolute bottom-1 left-1/2 -translate-x-1/2 p-1 hover:bg-gray-100 rounded focus:outline-none"
         >
           <ArrowDown className="w-3 h-3 text-gray-500" />
         </button>
@@ -57,7 +59,8 @@ export const NavigationHUD: React.FC<NavigationHUDProps> = ({
         <button
           tabIndex={-1}
           onClick={onPanLeft}
-          className="absolute left-1 top-1/2 -translate-y-1/2 p-1 hover:bg-gray-100 rounded"
+          onMouseDown={(e) => e.preventDefault()}
+          className="absolute left-1 top-1/2 -translate-y-1/2 p-1 hover:bg-gray-100 rounded focus:outline-none"
         >
           <ArrowLeft className="w-3 h-3 text-gray-500" />
         </button>
@@ -65,7 +68,8 @@ export const NavigationHUD: React.FC<NavigationHUDProps> = ({
         <button
           tabIndex={-1}
           onClick={onPanRight}
-          className="absolute right-1 top-1/2 -translate-y-1/2 p-1 hover:bg-gray-100 rounded"
+          onMouseDown={(e) => e.preventDefault()}
+          className="absolute right-1 top-1/2 -translate-y-1/2 p-1 hover:bg-gray-100 rounded focus:outline-none"
         >
           <ArrowRight className="w-3 h-3 text-gray-500" />
         </button>
@@ -73,7 +77,8 @@ export const NavigationHUD: React.FC<NavigationHUDProps> = ({
         <button
           tabIndex={-1}
           onClick={onResetCenter}
-          className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-6 h-6 bg-gray-200 hover:bg-gray-300 rounded-full flex items-center justify-center transition-colors"
+          onMouseDown={(e) => e.preventDefault()}
+          className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-6 h-6 bg-gray-200 hover:bg-gray-300 rounded-full flex items-center justify-center transition-colors focus:outline-none"
           title="Center view"
         >
           <Maximize className="w-3 h-3 text-gray-600" />
@@ -86,8 +91,9 @@ export const NavigationHUD: React.FC<NavigationHUDProps> = ({
           tabIndex={-1}
           variant="secondary"
           size="icon"
-          className="w-8 h-8 bg-white shadow-md"
+          className="w-8 h-8 bg-white shadow-md focus-visible:ring-0 focus-visible:ring-offset-0"
           onClick={onZoomIn}
+          onMouseDown={(e) => e.preventDefault()}
         >
           <Plus className="w-4 h-4" />
         </Button>
@@ -95,8 +101,9 @@ export const NavigationHUD: React.FC<NavigationHUDProps> = ({
           tabIndex={-1}
           variant="secondary"
           size="icon"
-          className="w-8 h-8 bg-white shadow-md"
+          className="w-8 h-8 bg-white shadow-md focus-visible:ring-0 focus-visible:ring-offset-0"
           onClick={onZoomOut}
+          onMouseDown={(e) => e.preventDefault()}
         >
           <Minus className="w-4 h-4" />
         </Button>
@@ -116,9 +123,11 @@ export const FloorPicker: React.FC = () => {
       {[1, 2].map((floor) => (
         <button
           key={floor}
+          tabIndex={-1}
           onClick={() => setActiveFloor(floor)}
+          onMouseDown={(e) => e.preventDefault()}
           className={`
-            w-8 h-8 rounded flex items-center justify-center text-sm font-medium transition-colors
+            w-8 h-8 rounded flex items-center justify-center text-sm font-medium transition-colors focus:outline-none
             ${activeFloor === floor ? 'bg-blue-500 text-white' : 'hover:bg-gray-100 text-gray-600'}
           `}
         >
@@ -126,7 +135,11 @@ export const FloorPicker: React.FC = () => {
         </button>
       ))}
       <div className="w-px h-6 bg-gray-200 mx-1" />
-      <button className="w-8 h-8 rounded hover:bg-gray-100 flex items-center justify-center">
+      <button
+        tabIndex={-1}
+        onMouseDown={(e) => e.preventDefault()}
+        className="w-8 h-8 rounded hover:bg-gray-100 flex items-center justify-center focus:outline-none"
+      >
         <Settings className="w-4 h-4 text-gray-500" />
       </button>
     </div>

@@ -195,7 +195,7 @@ function App() {
 
           {/* 空状态提示 */}
           {!svgUrl && (
-            <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
+            <div tabIndex={-1} className="absolute inset-0 flex items-center justify-center pointer-events-none focus:outline-none">
               <div className="bg-white px-8 py-6 rounded-xl shadow-lg text-center pointer-events-auto">
                 <div className="w-16 h-16 bg-blue-50 rounded-full flex items-center justify-center mx-auto mb-4">
                   <Upload className="w-8 h-8 text-blue-500" />

@@ -13,7 +13,7 @@ export const PanelTop: React.FC = () => {
     <header className="h-12 bg-white border-b flex items-center px-4 justify-between flex-shrink-0">
       {/* 文档操作组 */}
       <div className="flex items-center gap-2">
-        <Button tabIndex={-1} variant="ghost" size="icon" className="h-8 w-8">
+        <Button tabIndex={-1} variant="ghost" size="icon" className="h-8 w-8 focus-visible:ring-0 focus-visible:ring-offset-0" onMouseDown={(e) => e.preventDefault()}>
           <span className="text-lg">×</span>
         </Button>
         <div className="flex flex-col">
@@ -24,26 +24,26 @@ export const PanelTop: React.FC = () => {
 
       {/* 设计工具组 */}
       <div className="flex items-center gap-1">
-        <Button tabIndex={-1} variant="ghost" size="icon" className="h-8 w-8" title="Undo (⌘Z)">
+        <Button tabIndex={-1} variant="ghost" size="icon" className="h-8 w-8 focus-visible:ring-0 focus-visible:ring-offset-0" title="Undo (⌘Z)" onMouseDown={(e) => e.preventDefault()}>
           <Undo2 className="w-4 h-4" />
         </Button>
-        <Button tabIndex={-1} variant="ghost" size="icon" className="h-8 w-8" title="Redo (⌘⇧Z)" disabled>
+        <Button tabIndex={-1} variant="ghost" size="icon" className="h-8 w-8 focus-visible:ring-0 focus-visible:ring-offset-0" title="Redo (⌘⇧Z)" disabled onMouseDown={(e) => e.preventDefault()}>
           <Redo2 className="w-4 h-4 opacity-50" />
         </Button>
         <div className="w-px h-4 bg-gray-200 mx-2" />
-        <Button tabIndex={-1} variant="ghost" size="icon" className="h-8 w-8" title="Snap to grid">
+        <Button tabIndex={-1} variant="ghost" size="icon" className="h-8 w-8 focus-visible:ring-0 focus-visible:ring-offset-0" title="Snap to grid" onMouseDown={(e) => e.preventDefault()}>
           <Grid3X3 className="w-4 h-4" />
         </Button>
-        <Button tabIndex={-1} variant="ghost" size="icon" className="h-8 w-8" title="Show section contents">
+        <Button tabIndex={-1} variant="ghost" size="icon" className="h-8 w-8 focus-visible:ring-0 focus-visible:ring-offset-0" title="Show section contents" onMouseDown={(e) => e.preventDefault()}>
           <Eye className="w-4 h-4" />
         </Button>
-        <Button tabIndex={-1} variant="ghost" size="icon" className="h-8 w-8" title="Always show labels">
+        <Button tabIndex={-1} variant="ghost" size="icon" className="h-8 w-8 focus-visible:ring-0 focus-visible:ring-offset-0" title="Always show labels" onMouseDown={(e) => e.preventDefault()}>
           <Type className="w-4 h-4" />
         </Button>
       </div>
 
       {/* 帮助按钮 */}
-      <Button tabIndex={-1} variant="ghost" size="icon" className="h-8 w-8">
+      <Button tabIndex={-1} variant="ghost" size="icon" className="h-8 w-8 focus-visible:ring-0 focus-visible:ring-offset-0" onMouseDown={(e) => e.preventDefault()}>
         <HelpCircle className="w-4 h-4" />
       </Button>
     </header>

@@ -40,10 +40,10 @@ const InputRow: React.FC<InputRowProps> = ({ label, value }) => (
 
 export const PanelRight: React.FC = () => {
   return (
-    <div tabIndex={-1} className="w-72 bg-white border-l flex flex-col overflow-y-auto">
+    <div tabIndex={-1} className="w-72 bg-white border-l flex flex-col overflow-y-auto focus:outline-none">
       {/* Section Panel */}
       <InspectorSheet title="Section">
-        <button tabIndex={-1} className="flex items-center gap-2 text-sm text-blue-600 hover:text-blue-700">
+        <button tabIndex={-1} onMouseDown={(e) => e.preventDefault()} className="flex items-center gap-2 text-sm text-blue-600 hover:text-blue-700 focus:outline-none">
           <Settings className="w-4 h-4" />
           <span>Edit contents</span>
         </button>
