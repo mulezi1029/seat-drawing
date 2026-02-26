@@ -87,13 +87,15 @@ export interface CanvasProps {
   onRotationHandleHover?: (isHovered: boolean) => void;
   /** 选中元素的边界框 */
   selectedBbox?: BoundingBox | null;
+  /** 双击区域时进入编辑模式 */
+  onSectionDoubleClick?: (section: Section) => void;
 }
 
 /**
  * 画布组件 - 支持区域绘制
  */
 export const Canvas = forwardRef<HTMLDivElement, CanvasProps>(
-  ({ scale, offsetX, offsetY, isSpacePressed, activeTool, onScaleChange, onOffsetChange, children, isDrawing: externalIsDrawing, drawingPoints: externalDrawingPoints, onDrawingPointsChange, onDrawingComplete, onDrawingStateChange, allVertices = [], showGrid = false, gridSize = 50, onMousePositionChange, onSnapResultChange, onShiftPressedChange, onCtrlPressedChange, sections = [], selectedIds: externalSelectedIds, onSelectionChange, onSelectionBoxChange, onElementsMove, onElementsMoveEnd, onElementsRotate, onElementsRotateEnd, onRotationHandleHover, selectedBbox }, ref) => {
+  ({ scale, offsetX, offsetY, isSpacePressed, activeTool, onScaleChange, onOffsetChange, children, isDrawing: externalIsDrawing, drawingPoints: externalDrawingPoints, onDrawingPointsChange, onDrawingComplete, onDrawingStateChange, allVertices = [], showGrid = false, gridSize = 50, onMousePositionChange, onSnapResultChange, onShiftPressedChange, onCtrlPressedChange, sections = [], selectedIds: externalSelectedIds, onSelectionChange, onSelectionBoxChange, onElementsMove, onElementsMoveEnd, onElementsRotate, onElementsRotateEnd, onRotationHandleHover, selectedBbox, onSectionDoubleClick }, ref) => {
     const containerRef = useRef<HTMLDivElement>(null);
 
     // 暴露容器引用
@@ -896,6 +898,52 @@ export const Canvas = forwardRef<HTMLDivElement, CanvasProps>(
       }
     }, [isDrawing, setIsDrawing, setDrawingPoints]);
 
+    /**
+     * 双击区域进入编辑模式
+     */
+    const handleDoubleClick = useCallback(
+      (e: React.MouseEvent) => {
+        if (
+          activeTool !== 'select' ||
+          !onSectionDoubleClick ||
+          !containerRef.current ||
+          sections.length === 0 ||
+          isDrawing
+        ) {
+          return;
+        }
+
+        const containerRect = containerRef.current.getBoundingClientRect();
+        const worldPoint = screenToWorld(
+          e.clientX,
+          e.clientY,
+          containerRect,
+          offsetX,
+          offsetY,
+          scale
+        );
+
+        const sectionId = findElementAtPoint(worldPoint, sections);
+        if (sectionId) {
+          const section = sections.find((s) => s.id === sectionId);
+          if (section) {
+            e.preventDefault();
+            e.stopPropagation();
+            onSectionDoubleClick(section);
+          }
+        }
+      },
+      [
+        activeTool,
+        onSectionDoubleClick,
+        sections,
+        isDrawing,
+        offsetX,
+        offsetY,
+        scale,
+      ]
+    );
+
     // ===== 渲染 =====
 
     return (
@@ -911,6 +959,7 @@ export const Canvas = forwardRef<HTMLDivElement, CanvasProps>(
         onMouseMove={handleMouseMove}
         onMouseUp={handleMouseUp}
         onMouseLeave={handleMouseUp}
+        onDoubleClick={handleDoubleClick}
         onContextMenu={handleContextMenu}
       >
         {/* SVG 画布容器 - 与 seats.io 一致：width/height 固定，缩放由 SVG 内部 transform 处理 */}

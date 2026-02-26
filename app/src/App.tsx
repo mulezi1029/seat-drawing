@@ -11,6 +11,7 @@
 
 import React, { useCallback, useState, useEffect, useRef, useMemo } from 'react';
 import { useSimpleViewer } from '@/hooks/useSimpleViewer';
+import { useSectionEdit } from '@/hooks/useSectionEdit';
 import { Canvas } from '@/components/canvas';
 import { SVGRenderer } from '@/components/canvas/SVGRenderer';
 import { PanelTop } from '@/components/panels/PanelTop';
@@ -19,9 +20,10 @@ import { PanelRight } from '@/components/panels/PanelRight';
 import { FloatingControls } from '@/components/panels/FloatingControls';
 import { Button } from '@/components/ui/button';
 import { Upload } from 'lucide-react';
-import { type Section, type Point, type SnapResult, type BoundingBox, DEFAULT_SECTION_COLORS } from '@/types';
+import { type Section, type Point, type SnapResult, type BoundingBox, type CalibrationData, DEFAULT_SECTION_COLORS } from '@/types';
 import { rotatePolygon } from '@/utils/coordinate';
 import { getBoundingBox } from '@/utils/selection';
+import { SectionEditModal } from '@/components/section-edit';
 
 import './App.css';
 
@@ -68,6 +70,66 @@ function App() {
   const [_isCtrlPressed, setIsCtrlPressed] = useState(false);
   const [showGrid, setShowGrid] = useState(false);
   const [gridSize, setGridSize] = useState(50);
+
+  const handleSaveCalibration = useCallback((sectionId: string, calibrationData: CalibrationData) => {
+    setSections((prev) =>
+      prev.map((s) =>
+        s.id === sectionId ? { ...s, calibrationData } : s
+      )
+    );
+  }, []);
+
+  const handleSaveSeats = useCallback((sectionId: string, seats: import('@/types').Seat[]) => {
+    setSections((prev) =>
+      prev.map((s) =>
+        s.id === sectionId ? { ...s, seats } : s
+      )
+    );
+  }, []);
+
+  const {
+    state: sectionEditState,
+    enterEditMode,
+    exitEditMode,
+    updateCalibration,
+    resetCalibration,
+    completeCalibration,
+  } = useSectionEdit({ 
+    onSaveCalibration: handleSaveCalibration,
+    onSaveSeats: handleSaveSeats,
+  });
+
+  const editingSection = useMemo(
+    () =>
+      sectionEditState.sectionId
+        ? sections.find((s) => s.id === sectionEditState.sectionId) ?? null
+        : null,
+    [sectionEditState.sectionId, sections]
+  );
+
+  const handleSectionDoubleClick = useCallback(
+    (section: Section) => {
+      const ok = enterEditMode(section, 1);
+      if (!ok && section.points.length < 3) {
+        window.alert('该区域没有有效的多边形边界');
+      }
+    },
+    [enterEditMode]
+  );
+
+  const handleEnterSectionEdit = useCallback(() => {
+    if (selectedIds.size !== 1) {
+      window.alert('请只选择一个区域进行编辑');
+      return;
+    }
+    const sectionId = Array.from(selectedIds)[0];
+    const section = sections.find((s) => s.id === sectionId);
+    if (!section) return;
+    const ok = enterEditMode(section, 1);
+    if (!ok && section.points.length < 3) {
+      window.alert('该区域没有有效的多边形边界');
+    }
+  }, [selectedIds, sections, enterEditMode]);
 
   // 收集所有已有顶点用于吸附
   const allVertices = sections.flatMap(s => s.points);
@@ -288,6 +350,7 @@ function App() {
 
   /**
    * 选择工具键盘快捷键
+   * - Enter: 进入区域编辑（选中单个区域时）
    * - Ctrl+A: 全选
    * - Ctrl+C / Ctrl+D: 复制选中元素
    * - Delete: 删除选中元素
@@ -295,6 +358,19 @@ function App() {
    */
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
+      if (
+        e.key === 'Enter' &&
+        !sectionEditState.isActive &&
+        activeTool === 'select' &&
+        selectedIds.size === 1 &&
+        !(e.target instanceof HTMLInputElement) &&
+        !(e.target instanceof HTMLTextAreaElement)
+      ) {
+        e.preventDefault();
+        handleEnterSectionEdit();
+        return;
+      }
+
       // Ctrl+A 全选
       if ((e.key === 'a' || e.key === 'A') && (e.ctrlKey || e.metaKey) && activeTool === 'select') {
         e.preventDefault();
@@ -314,8 +390,12 @@ function App() {
         handleCopyElements();
       }
 
-      // Delete 删除选中元素
-      if ((e.key === 'Delete' || e.key === 'Backspace') && selectedIds.size > 0 && activeTool === 'select' && !isDrawing) {
+      // Delete 删除选中元素（仅在非区域编辑模式下）
+      if ((e.key === 'Delete' || e.key === 'Backspace') 
+          && selectedIds.size > 0 
+          && activeTool === 'select' 
+          && !isDrawing 
+          && !sectionEditState.isActive) {
         e.preventDefault();
         // 从 sections 中删除选中的元素
         setSections(prev => prev.filter(s => !selectedIds.has(s.id)));
@@ -323,8 +403,13 @@ function App() {
         setSelectedSectionId(null);
       }
 
-      // ESC 取消选择
-      if (e.key === 'Escape' && selectedIds.size > 0 && !isDrawing) {
+      // ESC 取消选择（区域编辑模式下由 SectionEditModal 处理）
+      if (
+        e.key === 'Escape' &&
+        !sectionEditState.isActive &&
+        selectedIds.size > 0 &&
+        !isDrawing
+      ) {
         e.preventDefault();
         setSelectedIds(new Set());
         setSelectedSectionId(null);
@@ -335,7 +420,7 @@ function App() {
     return () => {
       window.removeEventListener('keydown', handleKeyDown);
     };
-  }, [activeTool, sections, selectedIds, isDrawing, handleCopyElements]);
+  }, [activeTool, sections, selectedIds, isDrawing, sectionEditState.isActive, handleCopyElements, handleEnterSectionEdit]);
 
   /**
    * 处理文件选择
@@ -439,6 +524,7 @@ function App() {
             onElementsRotate={handleElementsRotate}
             onElementsRotateEnd={handleElementsRotateEnd}
             selectedBbox={selectedBbox}
+            onSectionDoubleClick={handleSectionDoubleClick}
           >
             {/* SVG 渲染内容 */}
             <SVGRenderer
@@ -500,6 +586,18 @@ function App() {
           onGridSizeChange={setGridSize}
         />
       </div>
+
+      {/* 区域编辑模态框 */}
+      <SectionEditModal
+        state={sectionEditState}
+        section={editingSection}
+        svgUrl={svgUrl}
+        onExit={exitEditMode}
+        onUpdateCalibration={updateCalibration}
+        onResetCalibration={resetCalibration}
+        onCompleteCalibration={completeCalibration}
+        onSaveSeats={handleSaveSeats}
+      />
     </div>
   );
 }

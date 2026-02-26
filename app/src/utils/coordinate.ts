@@ -297,3 +297,31 @@ export function rotatePoint(point: Point, center: Point, angle: number): Point {
 export function rotatePolygon(points: Point[], center: Point, angle: number): Point[] {
   return points.map(p => rotatePoint(p, center, angle));
 }
+
+/**
+ * 世界坐标转局部坐标（区域内坐标）
+ * 
+ * @param worldPoint - 世界坐标点
+ * @param sectionOrigin - 区域原点（边界框左上角）
+ * @returns 局部坐标点
+ */
+export function worldToLocal(worldPoint: Point, sectionOrigin: Point): Point {
+  return {
+    x: worldPoint.x - sectionOrigin.x,
+    y: worldPoint.y - sectionOrigin.y,
+  };
+}
+
+/**
+ * 局部坐标转世界坐标
+ * 
+ * @param localPoint - 局部坐标点
+ * @param sectionOrigin - 区域原点（边界框左上角）
+ * @returns 世界坐标点
+ */
+export function localToWorld(localPoint: Point, sectionOrigin: Point): Point {
+  return {
+    x: localPoint.x + sectionOrigin.x,
+    y: localPoint.y + sectionOrigin.y,
+  };
+}

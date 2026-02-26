@@ -11,3 +11,7 @@ export type {
   SimpleViewerState,
   SimpleViewerActions,
 } from './useSimpleViewer';
+
+// 区域编辑 hook
+export { useSectionEdit } from './useSectionEdit';
+export type { UseSectionEditParams, UseSectionEditReturn } from './useSectionEdit';

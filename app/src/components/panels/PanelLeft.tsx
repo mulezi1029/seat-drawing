@@ -7,12 +7,8 @@
 import React from 'react';
 import {
   MousePointer2,
-  MousePointerClick,
-  Brush,
-  CircleDot,
   Square,
   Hand,
-  Focus,
   Circle,
   MoreHorizontal,
   Route,

@@ -63,6 +63,11 @@ export interface BoundingBox {
 }
 
 /**
+ * 座位类型
+ */
+export type SeatType = 'normal' | 'vip' | 'accessible' | 'empty';
+
+/**
  * 座位接口
  * @interface Seat
  * @property {string} id - 唯一标识符
@@ -70,6 +75,8 @@ export interface BoundingBox {
  * @property {number} y - 世界坐标 Y
  * @property {string} row - 行号（如 "A"）
  * @property {number} number - 座位号
+ * @property {SeatType} type - 座位类型
+ * @property {number} angle - 座位角度（0-360°）
  */
 export interface Seat {
   id: string;
@@ -77,6 +84,37 @@ export interface Seat {
   y: number;
   row: string;
   number: number;
+  type: SeatType;
+  angle: number;
+}
+
+/**
+ * 座位视觉参数（单位：pt，与 seats.io 一致）
+ * 座位为正方形，统一使用 size 描述边长
+ * @interface SeatVisualParams
+ */
+export interface SeatVisualParams {
+  /** 座位边长 (pt) */
+  size: number;
+  /** 横向间距 (pt) */
+  gapX: number;
+  /** 纵向间距 (pt) */
+  gapY: number;
+}
+
+/**
+ * 校准数据
+ * @interface CalibrationData
+ */
+export interface CalibrationData {
+  /** 画布缩放比例 */
+  canvasScale: number;
+  /** 锚点缩放（用于重置） */
+  anchorScale: number;
+  /** 座位视觉参数 */
+  seatVisual: SeatVisualParams;
+  /** 是否已完成校准 */
+  isCalibrated: boolean;
 }
 
 /**
@@ -89,6 +127,7 @@ export interface Seat {
  * @property {string} color - 显示颜色（hex）
  * @property {Seat[]} seats - 区域内座位数组
  * @property {number} opacity - 透明度 0-1
+ * @property {CalibrationData} [calibrationData] - 校准设置持久化
  */
 export interface Section {
   id: string;
@@ -97,12 +136,36 @@ export interface Section {
   color: string;
   seats: Seat[];
   opacity: number;
+  /** 校准设置持久化 */
+  calibrationData?: CalibrationData;
+}
+
+/**
+ * 区域编辑状态
+ * @interface SectionEditState
+ */
+export interface SectionEditState {
+  /** 是否处于区域编辑模式 */
+  isActive: boolean;
+  /** 正在编辑的区域 ID */
+  sectionId: string | null;
+  /** 当前阶段 */
+  phase: 'calibrating' | 'editing';
+  /** 校准数据 */
+  calibration: CalibrationData;
+  /** 是否有未保存的更改 */
+  hasUnsavedChanges: boolean;
 }
 
 /**
  * 编辑器模式
  */
 export type EditorMode = 'view' | 'draw-section' | 'draw-polygon' | 'draw-seat' | 'select';
+
+/**
+ * 区域编辑工具模式
+ */
+export type SectionEditTool = 'select' | 'single-row' | 'matrix' | 'arc-row';
 
 /**
  * 选择框状态
@@ -161,3 +224,5 @@ export const DEFAULT_SECTION_COLORS = [
   '#f59e0b', // 琥珀色
 ];
 
+// 导出校准相关类型
+export * from './calibration';
