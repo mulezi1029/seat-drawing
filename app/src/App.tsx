@@ -61,7 +61,9 @@ function App() {
   // ===== 绘制辅助状态 =====
   const [mousePosition, setMousePosition] = useState<Point | null>(null);
   const [snapResult, setSnapResult] = useState<SnapResult | null>(null);
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
   const [_isShiftPressed, setIsShiftPressed] = useState(false);
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
   const [_isCtrlPressed, setIsCtrlPressed] = useState(false);
   const [showGrid, setShowGrid] = useState(false);
   const [gridSize, setGridSize] = useState(50);

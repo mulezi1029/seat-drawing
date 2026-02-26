@@ -17,7 +17,7 @@ import React, {
   useImperativeHandle,
 } from 'react';
 import { CANVAS_CONFIG, type Point, type SnapResult, type Section, type BoundingBox } from '@/types';
-import { screenToWorld, createRectanglePoints, getDistance, findSnapPoint, findAlignment, getAngle, rotatePolygon } from '@/utils/coordinate';
+import { screenToWorld, createRectanglePoints, getDistance, findSnapPoint, findAlignment, getAngle } from '@/utils/coordinate';
 import { findElementAtPoint, findElementsInBox, createSelectionBox, getBoundingBox } from '@/utils/selection';
 
 /** Canvas 组件属性 */
@@ -97,10 +97,19 @@ export const Canvas = forwardRef<HTMLDivElement, CanvasProps>(
     // 暴露容器引用
     useImperativeHandle(ref, () => containerRef.current!);
 
-    // 拖拽状态使用 ref 避免重渲染，只保留光标样式状态
+    // 拖拽状态使用 ref 避免重渲染
     const isPanningRef = useRef(false);
     const panStartRef = useRef<{ x: number; y: number } | null>(null);
-    const [cursorStyle, setCursorStyle] = useState('default');
+    // 光标样式使用 ref + 直接 DOM 操作，避免级联渲染
+    const cursorStyleRef = useRef('default');
+    const setCursorStyle = useCallback((style: string) => {
+      if (cursorStyleRef.current !== style) {
+        cursorStyleRef.current = style;
+        if (containerRef.current) {
+          containerRef.current.style.cursor = style;
+        }
+      }
+    }, []);
 
     // 用于跳过大容器滚动事件的标记，避免拖拽时触发状态更新
     const isDraggingRef = useRef(false);
@@ -140,7 +149,9 @@ export const Canvas = forwardRef<HTMLDivElement, CanvasProps>(
     const [isCtrlPressed, setIsCtrlPressed] = useState(false);
 
     // 鼠标位置（世界坐标）
+    // eslint-disable-next-line @typescript-eslint/no-unused-vars
     const [_mousePosition, setMousePosition] = useState<Point | null>(null);
+    // eslint-disable-next-line @typescript-eslint/no-unused-vars
     const [_snapResult, setSnapResult] = useState<SnapResult | null>(null);
 
     // ===== 选择工具状态 =====
@@ -193,7 +204,7 @@ export const Canvas = forwardRef<HTMLDivElement, CanvasProps>(
     // 旋转开始时保存的原始 section 数据（避免累积旋转）
     const originalSectionsRef = useRef<Section[]>([]);
 
-    // 更新光标样式
+    // 更新光标样式 - 使用 ref 直接操作 DOM，避免级联渲染
     useEffect(() => {
       if (isPanningRef.current) {
         setCursorStyle('grabbing');
@@ -220,6 +231,7 @@ export const Canvas = forwardRef<HTMLDivElement, CanvasProps>(
       } else {
         setCursorStyle('default');
       }
+      // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [isSpacePressed, isHandToolActive, activeTool, hoverElementId, selectedIds, isHoveringRotationHandle]);
 
     // ===== 鼠标事件处理 =====
@@ -400,7 +412,7 @@ export const Canvas = forwardRef<HTMLDivElement, CanvasProps>(
           }
         }
       },
-      [shouldPan, activeTool, isDrawing, drawingPoints, offsetX, offsetY, scale, setIsDrawing, setDrawingPoints, onDrawingComplete, setSelectedIds, selectedIds, sections]
+      [shouldPan, activeTool, isDrawing, drawingPoints, offsetX, offsetY, scale, setIsDrawing, setDrawingPoints, onDrawingComplete, setSelectedIds, selectedIds, sections, setCursorStyle]
     );
 
     /**
@@ -562,6 +574,13 @@ export const Canvas = forwardRef<HTMLDivElement, CanvasProps>(
         calculateConstrainedRectPoints,
         hoverElementId,
         sections,
+        onElementsMove,
+        onElementsRotate,
+        setRotationAngle,
+        setHoverElementId,
+        setMousePosition,
+        setSnapResult,
+        onSelectionBoxChange,
       ]
     );
 
@@ -636,7 +655,7 @@ export const Canvas = forwardRef<HTMLDivElement, CanvasProps>(
         boxEndRef.current = null;
         onSelectionBoxChange?.(null, null);
       }
-    }, [isSpacePressed, isHandToolActive, activeTool, isDrawing, drawingPoints, setIsDrawing, setDrawingPoints, onDrawingComplete, sections, setSelectedIds, onSelectionBoxChange, onElementsMoveEnd]);
+    }, [isSpacePressed, isHandToolActive, activeTool, isDrawing, drawingPoints, setIsDrawing, setDrawingPoints, onDrawingComplete, sections, setSelectedIds, onSelectionBoxChange, onElementsMoveEnd, onElementsRotateEnd, setIsRotating, setRotationAngle, setInitialRotationBbox, setIsDraggingElement, setCursorStyle]);
 
     // 滚轮移动优化：使用 ref 标记滚轮操作中，跳过状态同步
     const isWheelingRef = useRef(false);
@@ -852,7 +871,7 @@ export const Canvas = forwardRef<HTMLDivElement, CanvasProps>(
         ref={containerRef}
         className="relative w-full h-full overflow-auto scrollbar-hidden"
         tabIndex={-1}
-        style={{ cursor: cursorStyle }}
+        style={{ cursor: cursorStyleRef.current }}
         onScroll={handleScroll}
         onWheel={handleWheel}
         onMouseDown={handleMouseDown}

@@ -39,7 +39,7 @@ const handleMouseDown = useCallback(
       setCursorStyle('grabbing');
     }
   },
-  [shouldPan]
+  [shouldPan, setCursorStyle]
 );
 
 // 鼠标移动时直接操作 DOM，不触发 React 更新
