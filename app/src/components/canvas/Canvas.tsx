@@ -501,7 +501,7 @@ export const Canvas = forwardRef<HTMLDivElement, CanvasProps>(
 
         // 更新鼠标位置并计算吸附
         if (activeTool === 'section' || activeTool === 'polygon') {
-          // 计算吸附点
+          // 计算吸附点（传入 scale 以确保容差在屏幕像素层面保持一致）
           const lastPoint = drawingPoints.length > 0 ? drawingPoints[drawingPoints.length - 1] : null;
           const snap = findSnapPoint(worldPoint, {
             gridSize: showGrid ? gridSize : undefined,
@@ -511,6 +511,7 @@ export const Canvas = forwardRef<HTMLDivElement, CanvasProps>(
                 ? [0, 45, 90, 135, 180, 225, 270, 315]
                 : undefined,
             angleBase: lastPoint || undefined,
+            scale, // 传递缩放比例，用于将屏幕像素容差转换为世界坐标容差
           });
 
           // Calculate alignment using the point for alignment detection

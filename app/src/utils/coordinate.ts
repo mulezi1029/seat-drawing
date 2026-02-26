@@ -1,7 +1,22 @@
 /**
- * 坐标转换工具函数
+ * 坐标工具函数
  *
- * 实现 Screen、Viewport、World 三层坐标系统的转换
+ * 提供画布交互所需的几何计算能力：
+ *
+ * 1. 坐标转换：Screen ↔ World 双向转换，处理缩放和平移变换
+ * 2. 几何计算：距离、角度、中心点、矩形顶点创建
+ * 3. 吸附系统：网格吸附、顶点吸附、角度约束（支持缩放自适应容差）
+ * 4. 对齐检测：水平/垂直对齐检测与坐标吸附
+ * 5. 旋转变换：点和多边形的围绕中心旋转
+ *
+ * 坐标系统：
+ * - Screen：屏幕坐标（像素），相对于视口
+ * - World：世界坐标，无限画布中的逻辑坐标
+ * - 转换核心：以画布中心为原点的缩放变换
+ *
+ * 缩放自适应：
+ * 所有像素级容差（如吸附距离）都通过 `/scale` 转换为世界坐标，
+ * 确保在任意缩放级别下，用户在屏幕上的感知距离保持一致。
  */
 
 import { CANVAS_CONFIG, type Point, type SnapResult, type AlignmentResult } from '@/types';
@@ -165,6 +180,7 @@ export function findAlignment(
  *
  * @param point - 原始点
  * @param options - 吸附选项
+ * @param options.scale - 当前缩放比例（用于将屏幕像素容差转换为世界坐标容差）
  * @returns 吸附结果
  */
 export function findSnapPoint(
@@ -174,16 +190,21 @@ export function findSnapPoint(
     vertices?: Point[];
     angles?: number[];
     angleBase?: Point;
+    scale?: number;
   }
 ): SnapResult {
-  const { gridSize, vertices, angles, angleBase } = options;
+  const { gridSize, vertices, angles, angleBase, scale = 1 } = options;
+
+  // 将屏幕像素容差转换为世界坐标容差
+  // 屏幕像素 / scale = 世界坐标距离
+  const gridTolerance = 10 / scale;     // 网格吸附容差：10屏幕像素
+  const vertexTolerance = 15 / scale;   // 顶点吸附容差：15屏幕像素
 
   // 1. 检查网格吸附
   if (gridSize && gridSize > 0) {
     const snapped = snapToGrid(point, gridSize);
     const distance = getDistance(point, snapped);
-    if (distance < 10) {
-      // 10px 吸附容差
+    if (distance < gridTolerance) {
       return { point: snapped, type: 'grid' };
     }
   }
@@ -192,8 +213,7 @@ export function findSnapPoint(
   if (vertices && vertices.length > 0) {
     for (const vertex of vertices) {
       const distance = getDistance(point, vertex);
-      if (distance < 15) {
-        // 15px 顶点吸附容差
+      if (distance < vertexTolerance) {
         return { point: vertex, type: 'vertex', source: vertex };
       }
     }
