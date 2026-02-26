@@ -768,7 +768,7 @@ export const EditModeCanvas: React.FC<EditModeCanvasProps> = ({
   return (
     <div
       ref={containerRef}
-      className="flex-1 overflow-auto bg-gray-100 relative"
+      className="flex-1 overflow-auto bg-gray-100 relative scrollbar-hidden"
       style={{
         cursor: isSpacePressed ? 'grab' : (currentTool === 'matrix' || currentTool === 'single-row') ? 'crosshair' : 'default',
       }}

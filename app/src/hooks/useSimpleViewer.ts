@@ -168,20 +168,29 @@ export function useSimpleViewer(): UseSimpleViewerReturn {
    */
   const uploadSvg = useCallback((file: File) => {
     const reader = new FileReader();
-    reader.onload = () => {
-      const url = URL.createObjectURL(file);
-      setSvgUrlState(url);
+    reader.onload = (e) => {
+      const result = e.target?.result;
+      if (result) {
+        // 将文件转换为 Data URL，便于导出
+        const dataUrl = result as string;
+        setSvgUrlState(dataUrl);
+        
+        console.log('[上传] SVG 文件已转换为 Data URL');
+        console.log('[上传] 文件大小:', (dataUrl.length / 1024).toFixed(2), 'KB');
 
-      // 上传后重置视图到中心
-      const newScale = 1;
-      const canvasWidth = window.innerWidth;
-      const canvasHeight = window.innerHeight;
+        // 上传后重置视图到中心
+        const newScale = 1;
+        const canvasWidth = window.innerWidth;
+        const canvasHeight = window.innerHeight;
 
-      setScaleState(newScale);
-      setOffsetX(WORLD_CENTER - canvasWidth / 2);
-      setOffsetY(WORLD_CENTER - canvasHeight / 2);
+        setScaleState(newScale);
+        setOffsetX(WORLD_CENTER - canvasWidth / 2);
+        setOffsetY(WORLD_CENTER - canvasHeight / 2);
+      }
     };
-    reader.readAsText(file);
+    
+    // 读取为 Data URL（base64 编码）
+    reader.readAsDataURL(file);
   }, []);
 
   /**

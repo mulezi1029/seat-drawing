@@ -24,6 +24,7 @@ import { type Section, type Point, type SnapResult, type BoundingBox, type Calib
 import { rotatePolygon } from '@/utils/coordinate';
 import { getBoundingBox } from '@/utils/selection';
 import { SectionEditModal } from '@/components/section-edit';
+import { exportAndDownload, importVenueData, generateSummary } from '@/utils/dataExport';
 
 import './App.css';
 
@@ -38,6 +39,7 @@ function App() {
     offsetY,
     fileInputRef,
     uploadSvg,
+    setSvgUrl,
     zoomAt,
     setOffset,
     panBy,
@@ -60,6 +62,7 @@ function App() {
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
   const [selectionBoxStart, setSelectionBoxStart] = useState<Point | null>(null);
   const [selectionBoxEnd, setSelectionBoxEnd] = useState<Point | null>(null);
+  const [venueName, setVenueName] = useState<string>('Untitled Venue');
 
   // ===== 绘制辅助状态 =====
   const [mousePosition, setMousePosition] = useState<Point | null>(null);
@@ -473,6 +476,101 @@ function App() {
   const handlePanLeft = useCallback(() => handlePanWithSync(-100, 0), [handlePanWithSync]);
   const handlePanRight = useCallback(() => handlePanWithSync(100, 0), [handlePanWithSync]);
 
+  /**
+   * 导出数据
+   */
+  const handleExport = useCallback(() => {
+    try {
+      exportAndDownload(sections, svgUrl, venueName);
+      console.log('[导出] 数据导出成功');
+    } catch (error) {
+      console.error('[导出] 导出失败:', error);
+      alert('导出失败: ' + (error as Error).message);
+    }
+  }, [sections, svgUrl, venueName]);
+
+  /**
+   * 导入数据
+   */
+  const handleImport = useCallback(async (file: File) => {
+    try {
+      console.log('[导入] 开始导入文件:', file.name);
+      
+      const data = await importVenueData(file);
+      
+      console.log('[导入] 导入数据摘要:');
+      console.log(generateSummary({
+        version: '1.0.0',
+        timestamp: new Date().toISOString(),
+        venueName: data.venueName,
+        backgroundImage: data.backgroundImage,
+        sections: data.sections,
+        metadata: data.metadata,
+      }));
+
+      const confirmed = window.confirm(
+        `确认导入场馆数据？\n\n` +
+        `场馆名称: ${data.venueName}\n` +
+        `区域数量: ${data.metadata.totalSections}\n` +
+        `座位总数: ${data.metadata.totalSeats}\n` +
+        `背景图: ${data.backgroundImage ? '有' : '无'}\n\n` +
+        `当前数据将被替换！`
+      );
+
+      if (!confirmed) {
+        console.log('[导入] 用户取消导入');
+        return;
+      }
+
+      console.log('[导入] 开始更新状态...');
+      
+      // 先更新背景图
+      if (data.backgroundImage) {
+        console.log('[导入] 恢复背景图');
+        console.log('[导入] 背景图 URL 类型:', 
+          data.backgroundImage.startsWith('data:') ? 'Data URL' : 
+          data.backgroundImage.startsWith('http') ? 'HTTP URL' : 
+          '未知类型'
+        );
+        console.log('[导入] 背景图 URL 前 100 字符:', data.backgroundImage.substring(0, 100));
+        
+        setSvgUrl(data.backgroundImage);
+        
+        // 验证背景图是否可以加载
+        if (data.backgroundImage.startsWith('data:image') || data.backgroundImage.startsWith('http')) {
+          const testImg = new Image();
+          testImg.onload = () => {
+            console.log('[导入] ✅ 背景图验证成功');
+          };
+          testImg.onerror = (e) => {
+            console.error('[导入] ❌ 背景图验证失败:', e);
+            alert('警告：背景图可能无法正常显示');
+          };
+          testImg.src = data.backgroundImage;
+        }
+      } else {
+        console.log('[导入] 无背景图数据，清除当前背景图');
+        setSvgUrl(null);
+      }
+      
+      // 然后更新其他数据
+      setSections(data.sections);
+      setVenueName(data.venueName);
+      
+      console.log('[导入] 状态更新完成');
+      console.log('[导入] 当前 svgUrl 状态:', data.backgroundImage ? '已设置' : '未设置');
+      
+      // 延迟提示，确保状态已更新
+      setTimeout(() => {
+        console.log('[导入] ✅ 导入成功');
+        alert('导入成功！');
+      }, 100);
+    } catch (error) {
+      console.error('[导入] 导入失败:', error);
+      alert('导入失败: ' + (error as Error).message);
+    }
+  }, [setSvgUrl]);
+
   return (
     <div className="designer-app h-screen flex flex-col bg-gray-50 overflow-hidden">
       {/* 隐藏的文件输入 */}
@@ -485,7 +583,12 @@ function App() {
       />
 
       {/* 顶部工具栏 */}
-      <PanelTop />
+      <PanelTop 
+        venueName={venueName}
+        isSaved={true}
+        onExport={handleExport}
+        onImport={handleImport}
+      />
 
       {/* 主工作区 */}
       <div className="workspace flex flex-1 overflow-hidden">

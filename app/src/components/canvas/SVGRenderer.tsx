@@ -67,8 +67,12 @@ interface Seat {
  * 背景图层
  */
 const BackgroundLayer: React.FC<{ svgUrl: string | null }> = ({ svgUrl }) => {
-  if (!svgUrl) return null;
+  if (!svgUrl) {
+    console.log('[BackgroundLayer] 无背景图，不渲染');
+    return null;
+  }
 
+  
   return (
     <image
       href={svgUrl}
@@ -78,6 +82,8 @@ const BackgroundLayer: React.FC<{ svgUrl: string | null }> = ({ svgUrl }) => {
       preserveAspectRatio="xMidYMid meet"
       opacity={0.8}
       style={{ pointerEvents: 'none' }}
+      onLoad={() => console.log('[BackgroundLayer] ✅ 图片加载成功')}
+      onError={(e) => console.error('[BackgroundLayer] ❌ 图片加载失败:', e)}
     />
   );
 };
@@ -151,7 +157,7 @@ const SelectionHandles: React.FC<{
  */
 const SectionLabel: React.FC<{ section: Section; scale: number }> = ({
   section,
-  scale,
+  // scale,
 }) => {
   // 计算多边形中心
   const centerX = section.points.reduce((sum, p) => sum + p.x, 0) / section.points.length;
@@ -163,7 +169,7 @@ const SectionLabel: React.FC<{ section: Section; scale: number }> = ({
       y={centerY}
       textAnchor="middle"
       dominantBaseline="central"
-      fontSize={14 / scale}
+      fontSize={6}
       fontWeight="bold"
       fill="#374151"
       style={{ pointerEvents: 'none', userSelect: 'none' }}
