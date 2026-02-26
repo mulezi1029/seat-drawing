@@ -9,7 +9,7 @@
  * - 悬浮控件 (NavigationHUD, FloorPicker, StatusBar)
  */
 
-import React, { useCallback, useState, useEffect, useRef } from 'react';
+import React, { useCallback, useState, useEffect, useRef, useMemo } from 'react';
 import { useSimpleViewer } from '@/hooks/useSimpleViewer';
 import { Canvas } from '@/components/canvas';
 import { SVGRenderer } from '@/components/canvas/SVGRenderer';
@@ -19,8 +19,9 @@ import { PanelRight } from '@/components/panels/PanelRight';
 import { FloatingControls } from '@/components/panels/FloatingControls';
 import { Button } from '@/components/ui/button';
 import { Upload } from 'lucide-react';
-import { type Section, type Point, type SnapResult, DEFAULT_SECTION_COLORS } from '@/types';
+import { type Section, type Point, type SnapResult, type BoundingBox, DEFAULT_SECTION_COLORS } from '@/types';
 import { rotatePolygon } from '@/utils/coordinate';
+import { getBoundingBox } from '@/utils/selection';
 
 import './App.css';
 
@@ -70,6 +71,16 @@ function App() {
 
   // 收集所有已有顶点用于吸附
   const allVertices = sections.flatMap(s => s.points);
+
+  // 计算选中元素的边界框
+  const selectedBbox = useMemo<BoundingBox | null>(() => {
+    if (selectedIds.size === 0) return null;
+    const selectedSections = sections.filter(s => selectedIds.has(s.id));
+    if (selectedSections.length === 0) return null;
+
+    const allPoints = selectedSections.flatMap(s => s.points);
+    return getBoundingBox(allPoints);
+  }, [selectedIds, sections]);
 
   // Canvas 容器引用 - 用于获取实际滚动位置
   const canvasContainerRef = useRef<HTMLDivElement>(null);
@@ -427,6 +438,7 @@ function App() {
             onElementsMoveEnd={handleElementsMoveEnd}
             onElementsRotate={handleElementsRotate}
             onElementsRotateEnd={handleElementsRotateEnd}
+            selectedBbox={selectedBbox}
           >
             {/* SVG 渲染内容 */}
             <SVGRenderer
@@ -473,6 +485,7 @@ function App() {
             onPanDown={handlePanDown}
             onPanLeft={handlePanLeft}
             onPanRight={handlePanRight}
+            onPan={handlePanWithSync}
             onResetCenter={resetView}
             onZoomIn={zoomIn}
             onZoomOut={zoomOut}

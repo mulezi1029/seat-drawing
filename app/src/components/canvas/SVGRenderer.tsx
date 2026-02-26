@@ -1087,14 +1087,25 @@ export const SVGRenderer: React.FC<SVGRendererProps> = ({
         />
 
         {/* 中心点标记（调试用） */}
-        <circle
-          cx={WORLD_CENTER}
-          cy={WORLD_CENTER}
-          r={8 / scale}
-          fill={'red'}
-          pointerEvents="none"
-          style={{ zIndex: 1000 }}
-        />
+        <g className="world-center-point">
+          <circle
+            cx={WORLD_CENTER}
+            cy={WORLD_CENTER}
+            r={8 / scale}
+            fill={'red'}
+            pointerEvents="none"
+            style={{ zIndex: 1000 }}
+          />
+          <text
+            x={WORLD_CENTER}
+            y={WORLD_CENTER - 15}
+            textAnchor="middle"
+            dominantBaseline="central"
+            fontSize={12 / scale}
+            fill="red"
+          >
+            画布世界中心点</text>
+        </g>
       </g>
     </svg>
   );

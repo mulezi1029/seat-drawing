@@ -85,13 +85,15 @@ export interface CanvasProps {
   onElementsRotateEnd?: () => void;
   /** 旋转手柄悬停回调 */
   onRotationHandleHover?: (isHovered: boolean) => void;
+  /** 选中元素的边界框 */
+  selectedBbox?: BoundingBox | null;
 }
 
 /**
  * 画布组件 - 支持区域绘制
  */
 export const Canvas = forwardRef<HTMLDivElement, CanvasProps>(
-  ({ scale, offsetX, offsetY, isSpacePressed, activeTool, onScaleChange, onOffsetChange, children, isDrawing: externalIsDrawing, drawingPoints: externalDrawingPoints, onDrawingPointsChange, onDrawingComplete, onDrawingStateChange, allVertices = [], showGrid = false, gridSize = 50, onMousePositionChange, onSnapResultChange, onShiftPressedChange, onCtrlPressedChange, sections = [], selectedIds: externalSelectedIds, onSelectionChange, onSelectionBoxChange, onElementsMove, onElementsMoveEnd, onElementsRotate, onElementsRotateEnd, onRotationHandleHover }, ref) => {
+  ({ scale, offsetX, offsetY, isSpacePressed, activeTool, onScaleChange, onOffsetChange, children, isDrawing: externalIsDrawing, drawingPoints: externalDrawingPoints, onDrawingPointsChange, onDrawingComplete, onDrawingStateChange, allVertices = [], showGrid = false, gridSize = 50, onMousePositionChange, onSnapResultChange, onShiftPressedChange, onCtrlPressedChange, sections = [], selectedIds: externalSelectedIds, onSelectionChange, onSelectionBoxChange, onElementsMove, onElementsMoveEnd, onElementsRotate, onElementsRotateEnd, onRotationHandleHover, selectedBbox }, ref) => {
     const containerRef = useRef<HTMLDivElement>(null);
 
     // 暴露容器引用
@@ -204,6 +206,20 @@ export const Canvas = forwardRef<HTMLDivElement, CanvasProps>(
     // 旋转开始时保存的原始 section 数据（避免累积旋转）
     const originalSectionsRef = useRef<Section[]>([]);
 
+    // 检测鼠标是否在选中框范围内
+    const isInSelectedBbox = useCallback((worldPoint: Point): boolean => {
+      if (!selectedBbox || selectedIds.size === 0) return false;
+      return (
+        worldPoint.x >= selectedBbox.minX &&
+        worldPoint.x <= selectedBbox.maxX &&
+        worldPoint.y >= selectedBbox.minY &&
+        worldPoint.y <= selectedBbox.maxY
+      );
+    }, [selectedBbox, selectedIds]);
+
+    // 存储当前鼠标世界坐标，用于光标样式判断
+    const currentMousePosRef = useRef<Point | null>(null);
+
     // 更新光标样式 - 使用 ref 直接操作 DOM，避免级联渲染
     useEffect(() => {
       if (isPanningRef.current) {
@@ -222,9 +238,14 @@ export const Canvas = forwardRef<HTMLDivElement, CanvasProps>(
         } else if (isHoveringRotationHandle) {
           setCursorStyle('grab');
         } else if (hoverElementId && selectedIds.has(hoverElementId)) {
+          // 悬停在已选中元素上
           setCursorStyle('grab');
         } else if (hoverElementId) {
+          // 悬停在未选中元素上
           setCursorStyle('move');
+        } else if (currentMousePosRef.current && isInSelectedBbox(currentMousePosRef.current)) {
+          // 悬停在选中框范围内但没有悬停在具体元素上
+          setCursorStyle('grab');
         } else {
           setCursorStyle('default');
         }
@@ -232,7 +253,7 @@ export const Canvas = forwardRef<HTMLDivElement, CanvasProps>(
         setCursorStyle('default');
       }
       // eslint-disable-next-line react-hooks/exhaustive-deps
-    }, [isSpacePressed, isHandToolActive, activeTool, hoverElementId, selectedIds, isHoveringRotationHandle]);
+    }, [isSpacePressed, isHandToolActive, activeTool, hoverElementId, selectedIds, isHoveringRotationHandle, isInSelectedBbox]);
 
     // ===== 鼠标事件处理 =====
 
@@ -366,9 +387,11 @@ export const Canvas = forwardRef<HTMLDivElement, CanvasProps>(
               }
             }
           }
-
           // 检测点击的元素
           const clickedId = findElementAtPoint(worldPoint, sections);
+
+          // 检测是否点击在选中框范围内（但没有点击到具体元素）
+          const inSelectedBbox = isInSelectedBbox(worldPoint);
 
           if (clickedId) {
             // 点击了元素
@@ -399,6 +422,13 @@ export const Canvas = forwardRef<HTMLDivElement, CanvasProps>(
               dragElementIdsRef.current = new Set([clickedId]);
               return;
             }
+          } else if (inSelectedBbox && selectedIds.size > 0) {
+            // 点击在选中框范围内但没有点击到元素 - 也可以拖动
+            isDraggingElementRef.current = true;
+            setIsDraggingElement(true);
+            dragStartPointRef.current = worldPoint;
+            dragElementIdsRef.current = new Set(selectedIds);
+            return;
           }
 
           // 点击空白处 - 开始框选
@@ -412,7 +442,7 @@ export const Canvas = forwardRef<HTMLDivElement, CanvasProps>(
           }
         }
       },
-      [shouldPan, activeTool, isDrawing, drawingPoints, offsetX, offsetY, scale, setIsDrawing, setDrawingPoints, onDrawingComplete, setSelectedIds, selectedIds, sections, setCursorStyle]
+      [shouldPan, activeTool, isDrawing, drawingPoints, offsetX, offsetY, scale, setIsDrawing, setDrawingPoints, onDrawingComplete, setSelectedIds, selectedIds, sections, setCursorStyle, isInSelectedBbox]
     );
 
     /**
@@ -467,6 +497,9 @@ export const Canvas = forwardRef<HTMLDivElement, CanvasProps>(
         if (!containerRef.current) return;
         const containerRect = containerRef.current.getBoundingClientRect();
         const worldPoint = screenToWorld(e.clientX, e.clientY, containerRect, offsetX, offsetY, scale);
+
+        // 存储当前鼠标位置，用于光标样式判断
+        currentMousePosRef.current = worldPoint;
 
         // 元素拖拽中 - 更新位置
         if (isDraggingElementRef.current && dragStartPointRef.current && dragElementIdsRef.current.size > 0) {
@@ -530,7 +563,7 @@ export const Canvas = forwardRef<HTMLDivElement, CanvasProps>(
           // Include both existing vertices and current drawing points
           const pointForAlignment = snap.type !== 'none' ? snap.point : worldPoint;
           const alignmentVertices = [...allVertices, ...drawingPoints];
-          const alignment = findAlignment(pointForAlignment, alignmentVertices, 5/scale);
+          const alignment = findAlignment(pointForAlignment, alignmentVertices, 5 / scale);
 
           // 如果对齐，使用吸附后的点
           const isAligned = alignment.isHorizontalAligned || alignment.isVerticalAligned;
@@ -894,18 +927,18 @@ export const Canvas = forwardRef<HTMLDivElement, CanvasProps>(
           {React.Children.map(children, child =>
             React.isValidElement(child)
               ? React.cloneElement(child, {
-                  hoverElementId,
-                  isRotating,
-                  rotationAngle,
-                  initialRotationBbox,
-                  isDraggingElement,
-                  selectedIds,
-                  sections,
-                  onRotationHandleHover: (isHovered: boolean) => {
-                    setIsHoveringRotationHandle(isHovered);
-                    onRotationHandleHover?.(isHovered);
-                  },
-                } as Record<string, unknown>)
+                hoverElementId,
+                isRotating,
+                rotationAngle,
+                initialRotationBbox,
+                isDraggingElement,
+                selectedIds,
+                sections,
+                onRotationHandleHover: (isHovered: boolean) => {
+                  setIsHoveringRotationHandle(isHovered);
+                  onRotationHandleHover?.(isHovered);
+                },
+              } as Record<string, unknown>)
               : child
           )}
         </div>

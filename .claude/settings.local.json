@@ -43,7 +43,11 @@
       "Bash(pnpm lint)",
       "Bash(/bin/bash -c \"cd /Users/cy/Downloads/座位绘制功能/app && pnpm lint\")",
       "Bash(/bin/bash -c \"cd /Users/cy/Downloads/座位绘制功能/app && pnpm build\")",
-      "WebFetch(domain:localhost)"
+      "WebFetch(domain:localhost)",
+      "Bash(pkill:*)",
+      "Bash(npm run type-check:*)",
+      "Bash(git -C /Users/cy/Downloads/座位绘制功能 diff --cached --stat)",
+      "Bash(git -C /Users/cy/Downloads/座位绘制功能 diff:*)"
     ]
   }
 }
